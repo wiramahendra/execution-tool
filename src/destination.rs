@@ -85,6 +85,9 @@ pub struct ValidatedDestination {
 /// it, even when every address check holds.
 const ALLOWED_HTTPS_PORTS: &[u16] = &[443, 8443];
 
+/// Ports permitted for loopback HTTP (local dev). Restrict to common dev ports to limit port-scan.
+const ALLOWED_LOOPBACK_PORTS: &[u16] = &[80, 3000, 4000, 5000, 7000, 8000, 8080, 9000, 8443];
+
 /// Parse a URL and return its lowercased host, without resolving anything.
 ///
 /// Exists so a caller can apply a host allowlist *before* a DNS lookup
@@ -105,6 +108,9 @@ pub fn validate_destination(url: &str) -> Result<ValidatedDestination, Destinati
         Scheme::Http => {
             if !is_loopback_name(&host) {
                 return Err(DestinationError::PlaintextToRemote);
+            }
+            if !ALLOWED_LOOPBACK_PORTS.contains(&port) {
+                return Err(DestinationError::BlockedPort);
             }
             DestinationClass::LoopbackHttp
         }
@@ -136,8 +142,43 @@ enum Scheme {
     Https,
 }
 
+fn is_numeric_ip_bypass(host: &str) -> bool {
+    // Host that looks like an IP but fails standard parse -> likely octal/hex/integer encoding.
+    // Standard dotted decimal that parses as IpAddr is already handled; this catches bypass forms.
+    let is_numeric_host = host
+        .chars()
+        .all(|c| c.is_ascii_hexdigit() || c == '.' || c == 'x' || c == 'X');
+    if !is_numeric_host {
+        // Also catch pure decimal integer like "3232235777"
+        if host.chars().all(|c| c.is_ascii_digit()) && host.len() > 7 {
+            return host.parse::<IpAddr>().is_err();
+        }
+        return false;
+    }
+    // Contains hex/octal indicators or all digits/dots but not valid IpAddr
+    if host.contains('x') || host.contains('X') {
+        return host.parse::<IpAddr>().is_err();
+    }
+    // Leading zero octal like 0300.0250...
+    if host
+        .split('.')
+        .any(|part| part.len() > 1 && part.starts_with('0'))
+    {
+        return host.parse::<IpAddr>().is_err();
+    }
+    false
+}
+
 fn is_loopback_name(host: &str) -> bool {
-    matches!(host, "127.0.0.1" | "localhost" | "::1")
+    if matches!(host, "localhost" | "::1") {
+        return true;
+    }
+    // 127.0.0.0/8 is all loopback, not just 127.0.0.1. `IpAddr::is_loopback`
+    // correctly handles the whole range.
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return ip.is_loopback();
+    }
+    false
 }
 
 fn parse(url: &str) -> Result<(Scheme, String, u16), DestinationError> {
@@ -199,6 +240,15 @@ fn parse(url: &str) -> Result<(Scheme, String, u16), DestinationError> {
 
     if host.is_empty() {
         return Err(DestinationError::Malformed("missing host"));
+    }
+    // Reject percent-encoded hosts: allowlist example.com should not be bypassed via %65%78...
+    if host.contains('%') {
+        return Err(DestinationError::Malformed("percent-encoded host"));
+    }
+    // Reject alternative numeric IP encodings (octal, hex, integer) that `parse::<IpAddr>` rejects
+    // but `getaddrinfo` might interpret (e.g. 0xC0.0xA8..., 0300.0250..., 3232235777).
+    if is_numeric_ip_bypass(&host) {
+        return Err(DestinationError::Malformed("numeric IP bypass"));
     }
     // A trailing dot is a distinct name to a resolver but the same host; strip
     // it so it cannot be used to sidestep a name comparison.
@@ -319,9 +369,14 @@ fn is_blocked_v6(ip: Ipv6Addr) -> bool {
     let s = ip.segments();
     (s[0] & 0xffc0) == 0xfe80          // link-local fe80::/10
         || (s[0] & 0xfe00) == 0xfc00   // unique local fc00::/7
+        || (s[0] & 0xffc0) == 0xfec0   // site-local fec0::/10 deprecated
         || (s[0] == 0x2001 && s[1] == 0x0db8) // documentation 2001:db8::/32
-        || (s[0] == 0x2001 && s[1] == 0x0000) // Teredo — tunnels an IPv4 dest
-        || s[0] == 0x2002 // 6to4 — embeds an arbitrary IPv4 address
+        || (s[0] == 0x2001 && s[1] == 0x0000) // Teredo — tunnels an IPv4 dest 2001::/32
+        || s[0] == 0x2002 // 6to4 — embeds an arbitrary IPv4 address 2002::/16
+        || (s[0] == 0x0064 && s[1] == 0xff9b) // NAT64 64:ff9b::/96 (+ 64:ff9b:1::/48)
+        || (s[0] == 0x2001 && (s[1] & 0xfff0) == 0x0010) // ORCHID 2001:10::/28
+        || (s[0] == 0x2001 && (s[1] & 0xfff0) == 0x0020) // ORCHIDv2 2001:20::/28
+        || s[0] == 0x0100 // discard 100::/64
 }
 
 #[cfg(test)]

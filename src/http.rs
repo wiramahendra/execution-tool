@@ -35,6 +35,8 @@ pub struct HttpTool {
     allowed_hosts: HashSet<String>,
     timeout: Duration,
     body_limit: usize,
+    request_body_limit: usize,
+    allowed_request_headers: Option<HashSet<String>>,
 }
 
 impl HttpTool {
@@ -54,6 +56,8 @@ impl HttpTool {
                 .collect(),
             timeout: DEFAULT_TIMEOUT,
             body_limit: DEFAULT_BODY_LIMIT,
+            request_body_limit: DEFAULT_BODY_LIMIT,
+            allowed_request_headers: None,
         }
     }
 
@@ -69,7 +73,36 @@ impl HttpTool {
         self
     }
 
-    fn check(&self, args: &Value) -> Result<(String, String, Option<String>)> {
+    /// Set the request body cap.
+    pub fn with_request_body_limit(mut self, bytes: usize) -> Self {
+        self.request_body_limit = bytes;
+        self
+    }
+
+    /// Allow only these request headers to be sent.
+    pub fn with_allowed_request_headers<I, S>(mut self, headers: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.allowed_request_headers = Some(
+            headers
+                .into_iter()
+                .map(|h| h.as_ref().to_ascii_lowercase())
+                .collect(),
+        );
+        self
+    }
+
+    fn check(
+        &self,
+        args: &Value,
+    ) -> Result<(
+        String,
+        String,
+        Option<String>,
+        crate::destination::ValidatedDestination,
+    )> {
         let url = args
             .get("url")
             .and_then(Value::as_str)
@@ -94,11 +127,49 @@ impl HttpTool {
             bail!("host_not_allowed");
         }
 
-        validate_destination(url).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let destination = validate_destination(url).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         let body = args.get("body").and_then(Value::as_str).map(str::to_owned);
+        if let Some(ref b) = body {
+            if b.len() > self.request_body_limit {
+                bail!("request_body_too_large");
+            }
+        }
 
-        Ok((method, url.to_string(), body))
+        if let Some(headers) = args.get("headers") {
+            if !headers.is_object() {
+                bail!("headers_must_be_object");
+            }
+            // Validate header names and values: CRLF injection prevention
+            for (k, v) in headers.as_object().unwrap() {
+                if k.chars().any(|c| c == '\r' || c == '\n' || c == ':') {
+                    bail!("header_not_allowed: {k}");
+                }
+                if let Some(s) = v.as_str() {
+                    if s.chars().any(|c| c == '\r' || c == '\n') {
+                        bail!("header_not_allowed: {k}");
+                    }
+                }
+            }
+            if let Some(allowed) = &self.allowed_request_headers {
+                for key in headers.as_object().unwrap().keys() {
+                    if !allowed.contains(&key.to_ascii_lowercase()) {
+                        bail!("header_not_allowed: {key}");
+                    }
+                    if matches!(
+                        key.to_ascii_lowercase().as_str(),
+                        "authorization" | "cookie" | "host" | "content-length"
+                    ) {
+                        bail!("header_not_allowed: {key}");
+                    }
+                }
+            } else if !headers.as_object().unwrap().is_empty() {
+                // by default no extra headers are allowed to avoid smuggling
+                bail!("headers_not_allowed");
+            }
+        }
+
+        Ok((method, url.to_string(), body, destination))
     }
 }
 
@@ -109,27 +180,40 @@ impl Tool for HttpTool {
     }
 
     fn description(&self) -> &str {
-        "Make an HTTP request to an allowlisted host"
+        "HTTP fetch to allowlisted hosts with SSRF protection (private ranges blocked, redirects not followed, DNS pinned, ports 443/8443). Allowlist checked before DNS to avoid exfiltration."
     }
 
     fn parameters_schema(&self) -> Value {
         let mut hosts: Vec<&String> = self.allowed_hosts.iter().collect();
         hosts.sort();
+        let header_desc = if let Some(allowed) = &self.allowed_request_headers {
+            let mut v: Vec<&String> = allowed.iter().collect();
+            v.sort();
+            format!("Allowed request headers: {v:?}. Blocked: authorization, cookie, host, content-length.")
+        } else {
+            "Custom headers not allowed by default (use with_allowed_request_headers). Blocked: authorization, cookie.".into()
+        };
         json!({
             "type": "object",
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": format!("Target URL. Allowed hosts: {hosts:?}")
+                    "description": format!("Target URL. Allowed hosts: {hosts:?}. Must be https for public hosts (443/8443) or http for loopback (80/3000/8080 etc). Example: https://api.github.com/repos/foo/bar")
                 },
                 "method": {
                     "type": "string",
                     "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"],
-                    "default": "GET"
+                    "default": "GET",
+                    "description": "HTTP method. TRACE/CONNECT denied."
                 },
-                "body": { "type": "string", "description": "Request body" }
+                "body": { "type": "string", "description": "Request body (max 4MiB, checked via request_body_limit). Example: JSON payload for POST." },
+                "headers": { "type": "object", "description": header_desc, "additionalProperties": { "type": "string" } }
             },
-            "required": ["url"]
+            "required": ["url"],
+            "examples": [
+                {"url":"https://api.github.com/repos/foo/bar"},
+                {"url":"https://api.github.com/repos/foo/bar","method":"POST","body":"{\"query\":\"hi\"}"}
+            ]
         })
     }
 
@@ -139,11 +223,7 @@ impl Tool for HttpTool {
 
     async fn execute(&self, args: Value) -> Result<ToolOutcome> {
         let started = Instant::now();
-        let (method, url, body) = self.check(&args)?;
-
-        // Re-validated rather than carried from `check`, so the addresses the
-        // client is pinned to are the ones just inspected.
-        let destination = validate_destination(&url).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let (method, url, body, destination) = self.check(&args)?;
         debug!(host = %destination.host, %method, "http request");
 
         let client = reqwest::Client::builder()
@@ -157,6 +237,13 @@ impl Tool for HttpTool {
 
         let method = reqwest::Method::from_bytes(method.as_bytes())?;
         let mut request = client.request(method, &url);
+        if let Some(headers) = args.get("headers").and_then(|v| v.as_object()) {
+            for (k, v) in headers {
+                if let Some(s) = v.as_str() {
+                    request = request.header(k.as_str(), s);
+                }
+            }
+        }
         if let Some(body) = body {
             request = request.body(body);
         }
@@ -183,24 +270,77 @@ impl Tool for HttpTool {
             );
         }
 
-        let bytes = match response.bytes().await {
-            Ok(bytes) => bytes,
-            Err(_) => {
-                return Ok(ToolOutcome::failure(
-                    "http",
-                    "body_read_failed",
-                    elapsed(started),
-                ))
+        // Streaming read with cap to avoid OOM: respect Content-Length pre-check plus incremental limit.
+        if let Some(cl) = response
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            if cl > self.body_limit * 8 {
+                // Very large advertised length — still stream but we know we'll truncate
+                debug!(
+                    content_length = cl,
+                    body_limit = self.body_limit,
+                    "large content-length, will truncate streaming"
+                );
             }
-        };
-
-        let total = bytes.len();
-        let truncated = total > self.body_limit;
-        let body = if truncated {
-            bytes[..self.body_limit].to_vec()
-        } else {
-            bytes.to_vec()
-        };
+        }
+        let mut body = Vec::new();
+        let mut total: usize = 0;
+        let mut truncated = false;
+        {
+            use futures_util::StreamExt;
+            let mut stream = response.bytes_stream();
+            while let Some(chunk_res) = stream.next().await {
+                match chunk_res {
+                    Ok(chunk) => {
+                        total = total.saturating_add(chunk.len());
+                        if body.len() < self.body_limit {
+                            let remaining = self.body_limit - body.len();
+                            if chunk.len() <= remaining {
+                                body.extend_from_slice(&chunk);
+                            } else {
+                                body.extend_from_slice(&chunk[..remaining]);
+                                truncated = true;
+                            }
+                        } else {
+                            truncated = true;
+                        }
+                        // If we've already exceeded limit by a lot, stop reading further to save bandwidth
+                        if total > self.body_limit && body.len() >= self.body_limit {
+                            // Drain remaining stream but don't buffer
+                            // We continue to count total but not store
+                            // To avoid DoS, break after counting one extra chunk beyond limit*2
+                            if total > self.body_limit * 2 {
+                                // consume remainder without storing
+                                while let Some(_extra) = stream.next().await {
+                                    if let Ok(c) = _extra {
+                                        total = total.saturating_add(c.len());
+                                        if total > self.body_limit * 4 {
+                                            break;
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        return Ok(ToolOutcome::failure(
+                            "http",
+                            "body_read_failed",
+                            elapsed(started),
+                        ))
+                    }
+                }
+            }
+            if total > self.body_limit {
+                truncated = true;
+            }
+        }
 
         let summary = json!({
             "status": status.as_u16(),

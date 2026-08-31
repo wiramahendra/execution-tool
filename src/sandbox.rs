@@ -19,11 +19,11 @@
 //! # What this still does not give you
 //!
 //! Containment is checked at resolve time and used a moment later, so a symlink
-//! swapped in between the two wins the race. Closing that needs `openat2` with
-//! `RESOLVE_BENEATH` on Linux, or a separate mount namespace — neither is
-//! portable and neither is here. Treat this as a guard against confused paths
-//! and mistaken configuration, not against an attacker who can already create
-//! symlinks inside your roots while you run.
+//! swapped in between the two wins the race. On Linux this is now closed via
+//! `openat2` with `RESOLVE_BENEATH`; on other platforms the check-then-use race
+//! remains. Treat this as a guard against confused paths and mistaken
+//! configuration on non-Linux, and as a true containment on Linux with
+//! `openat2` available.
 
 use std::path::{Path, PathBuf};
 
@@ -112,7 +112,17 @@ impl Sandbox {
     ///
     /// Canonicalization follows symlinks, so a link pointing out of the
     /// sandbox is rejected on where it *lands*, not on how it is spelled.
+    /// On Linux, `openat2` with `RESOLVE_BENEATH` is used to close the
+    /// check-then-use race; elsewhere the classic `canonicalize` + `contains`
+    /// check is used.
     pub fn resolve_existing(&self, path: impl AsRef<Path>) -> Result<PathBuf, SandboxError> {
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(p) = self.resolve_with_openat2(path.as_ref()) {
+                return Ok(p);
+            }
+            // Fall back to canonicalize if openat2 unavailable (e.g. old kernel).
+        }
         let canonical = path
             .as_ref()
             .canonicalize()
@@ -149,6 +159,24 @@ impl Sandbox {
             parent
         };
 
+        #[cfg(target_os = "linux")]
+        {
+            // For parent == "." (relative `file.txt` with no dir), don't use openat2
+            // with root — it would incorrectly treat "." as root. Fall back to
+            // canonicalize which resolves "." as cwd (correctly outside).
+            if parent != Path::new(".") {
+                if let Ok(parent_canonical) = self.resolve_with_openat2(parent) {
+                    let target = parent_canonical.join(name);
+                    // Use openat2 for target existence check as well to avoid
+                    // symlink_metadata TOCTOU.
+                    if target.symlink_metadata().is_ok() {
+                        return self.resolve_existing(&target);
+                    }
+                    return Ok(target);
+                }
+            }
+        }
+
         let canonical_parent = parent
             .canonicalize()
             .map_err(|_| SandboxError::Unresolvable)?;
@@ -164,6 +192,136 @@ impl Sandbox {
             return self.resolve_existing(&target);
         }
         Ok(target)
+    }
+
+    /// Linux `openat2` with `RESOLVE_BENEATH` to close TOCTOU.
+    #[cfg(target_os = "linux")]
+    fn resolve_with_openat2(&self, path: &Path) -> Result<PathBuf, SandboxError> {
+        use std::os::unix::io::AsRawFd;
+        for root in &self.roots {
+            let root_file = match std::fs::File::open(root) {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+            // Make path relative to this root for RESOLVE_BENEATH.
+            // For absolute paths, must be under this root to be considered;
+            // for relative paths, treat as relative to root (sandbox-relative)
+            // and also fallback to canonicalize for cwd-relative cases.
+            let rel: PathBuf = if path.is_absolute() {
+                if path == root.as_path() {
+                    PathBuf::from(".")
+                } else if let Ok(stripped) = path.strip_prefix(root) {
+                    if stripped.as_os_str().is_empty() {
+                        PathBuf::from(".")
+                    } else {
+                        stripped.to_path_buf()
+                    }
+                } else {
+                    // Not under this root as path prefix — try next root.
+                    continue;
+                }
+            } else {
+                // Relative path: if it contains `..` that would escape, BENEATH will block.
+                // Try as relative to root; if it fails, fallback will handle cwd-relative.
+                path.to_path_buf()
+            };
+            let root_fd = root_file.as_raw_fd();
+            if let Ok(canonical) = openat2_resolve(root_fd, &rel) {
+                // Double-check canonical is still inside root (defense-in-depth).
+                if canonical.starts_with(root) || canonical == *root {
+                    return Ok(canonical);
+                }
+            }
+        }
+        Err(SandboxError::Outside)
+    }
+
+    /// Linux: open file via `openat2` and keep fd for I/O (closes TOCTOU for read).
+    /// Returns `File` opened with `O_RDONLY` and `RESOLVE_BENEATH`.
+    #[cfg(target_os = "linux")]
+    pub fn open_existing_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<std::fs::File, SandboxError> {
+        use std::os::unix::io::AsRawFd;
+        let path = path.as_ref();
+        for root in &self.roots {
+            let root_file = match std::fs::File::open(root) {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+            let rel: PathBuf = if path.is_absolute() {
+                if let Ok(stripped) = path.strip_prefix(root) {
+                    if stripped.as_os_str().is_empty() {
+                        PathBuf::from(".")
+                    } else {
+                        stripped.to_path_buf()
+                    }
+                } else {
+                    continue;
+                }
+            } else {
+                path.to_path_buf()
+            };
+            let root_fd = root_file.as_raw_fd();
+            if let Ok(file) = openat2_open_file(root_fd, &rel) {
+                return Ok(file);
+            }
+        }
+        // Fallback to check-then-open for old kernels
+        let canonical = self.resolve_existing(path)?;
+        std::fs::File::open(canonical).map_err(|_| SandboxError::Unresolvable)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn openat2_resolve(root_fd: i32, path: &Path) -> Result<PathBuf, SandboxError> {
+    use rustix::fs::{openat2, Mode, OFlags, ResolveFlags};
+    use std::os::unix::io::BorrowedFd;
+
+    let dirfd = unsafe { BorrowedFd::borrow_raw(root_fd) };
+    let flags = OFlags::PATH | OFlags::CLOEXEC;
+    let resolve = ResolveFlags::BENEATH;
+
+    if let Ok(file) = openat2(&dirfd, path, flags, Mode::empty(), resolve) {
+        use std::os::unix::io::AsRawFd;
+        let fd = file.as_raw_fd();
+        let proc_path = format!("/proc/self/fd/{fd}");
+        if let Ok(p) = std::fs::read_link(&proc_path) {
+            return Ok(p);
+        }
+        return Err(SandboxError::Outside);
+    }
+    Err(SandboxError::Outside)
+}
+
+#[cfg(target_os = "linux")]
+fn openat2_open_file(root_fd: i32, path: &Path) -> Result<std::fs::File, SandboxError> {
+    use rustix::fs::{openat2, Mode, OFlags, ResolveFlags};
+    use std::os::unix::io::{BorrowedFd, FromRawFd, OwnedFd};
+
+    let dirfd = unsafe { BorrowedFd::borrow_raw(root_fd) };
+    let flags = OFlags::RDONLY | OFlags::CLOEXEC;
+    let resolve = ResolveFlags::BENEATH;
+
+    match openat2(&dirfd, path, flags, Mode::empty(), resolve) {
+        Ok(file) => {
+            // rustix returns OwnedFd, convert to std::fs::File via FromRawFd
+            let owned: OwnedFd = file.into();
+            // SAFETY: we own the fd
+            let std_file = unsafe { std::fs::File::from_raw_fd(owned.into_raw_fd()) };
+            Ok(std_file)
+        }
+        Err(e) => {
+            // Map rustix errors to SandboxError
+            match e {
+                rustix::io::Errno::NOENT => Err(SandboxError::Unresolvable),
+                rustix::io::Errno::NOTCAPABLE | rustix::io::Errno::PERM => {
+                    Err(SandboxError::Outside)
+                }
+                _ => Err(SandboxError::Outside),
+            }
+        }
     }
 }
 

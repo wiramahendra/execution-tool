@@ -41,9 +41,16 @@
 
 #![warn(missing_docs)]
 
+pub mod agent;
+pub mod backend;
+pub mod code;
 pub mod destination;
+pub mod egress;
+pub mod error;
 pub mod fs;
 pub mod http;
+pub mod limits;
+pub mod policy;
 pub mod redaction;
 pub mod registry;
 pub mod sandbox;
@@ -54,11 +61,21 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub use agent::{MemoryTool, PlanTool, ReflectTool, ThinkTool, TodoTool};
+pub use backend::{
+    ContainerBackend, ExecOutput, ExecRequest, ExecutionBackend, LocalProcessBackend,
+    ResourceLimits, StreamingOutput, WasmBackend,
+};
+pub use code::{CodeTool, Language};
 pub use destination::{
     validate_destination, DestinationClass, DestinationError, ValidatedDestination,
 };
+pub use egress::{EgressError, EgressPolicy};
+pub use error::ToolError;
 pub use fs::FileSystemTool;
 pub use http::HttpTool;
+pub use limits::Limits;
+pub use policy::ExecutionPolicy;
 pub use redaction::REDACTION_POLICY_VERSION;
 pub use registry::{ToolDefinition, ToolRegistry};
 pub use sandbox::{Sandbox, SandboxError};

@@ -2,19 +2,19 @@
 //!
 //! Read this before enabling it.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::process::Stdio;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
+use base64::Engine as _;
 use serde_json::{json, Value};
-use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 use tracing::debug;
 
+use crate::backend::{ExecRequest, ExecutionBackend, LocalProcessBackend, ResourceLimits};
 use crate::sandbox::Sandbox;
-use crate::{sha256_hex, Tool, ToolOutcome};
+use crate::{Tool, ToolOutcome};
 
 /// Default cap on captured stdout/stderr, per stream.
 pub const DEFAULT_OUTPUT_LIMIT: usize = 1024 * 1024;
@@ -117,6 +117,12 @@ pub struct ShellTool {
     working_dirs: Option<Sandbox>,
     timeout: Duration,
     output_limit: usize,
+    allowed_env: Option<Vec<String>>,
+    extra_env: Vec<(String, String)>,
+    backend: Arc<dyn ExecutionBackend>,
+    stdin_limit: usize,
+    cpu_time: Option<Duration>,
+    memory_bytes: Option<u64>,
 }
 
 impl ShellTool {
@@ -130,6 +136,12 @@ impl ShellTool {
             working_dirs: None,
             timeout: DEFAULT_TIMEOUT,
             output_limit: DEFAULT_OUTPUT_LIMIT,
+            allowed_env: None,
+            extra_env: Vec::new(),
+            backend: Arc::new(LocalProcessBackend),
+            stdin_limit: 1024 * 1024,
+            cpu_time: None,
+            memory_bytes: None,
         }
     }
 
@@ -154,13 +166,100 @@ impl ShellTool {
         self
     }
 
+    /// Set stdin limit.
+    pub fn with_stdin_limit(mut self, bytes: usize) -> Self {
+        self.stdin_limit = bytes;
+        self
+    }
+
+    /// Allow only these env vars to be inherited from the parent.
+    ///
+    /// If not set, the child inherits no environment (`env_clear`). This
+    /// prevents `LD_PRELOAD`, `GIT_SSH_COMMAND`, `PYTHONPATH` etc. from
+    /// bypassing `ArgumentPolicy`.
+    pub fn with_allowed_env<I, S>(mut self, vars: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.allowed_env = Some(vars.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Inject an explicit env var into the child.
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.extra_env.push((key.into(), value.into()));
+        self
+    }
+
+    /// Override the execution backend (e.g. `WasmBackend`, `ContainerBackend`).
+    pub fn with_backend(mut self, backend: Arc<dyn ExecutionBackend>) -> Self {
+        self.backend = backend;
+        self
+    }
+
+    /// Set CPU time limit (enforced by Wasm/Container backends; advisory for local).
+    pub fn with_cpu_time(mut self, cpu: Duration) -> Self {
+        self.cpu_time = Some(cpu);
+        self
+    }
+
+    /// Set memory limit in bytes (enforced by Wasm/Container backends).
+    pub fn with_memory_limit(mut self, bytes: u64) -> Self {
+        self.memory_bytes = Some(bytes);
+        self
+    }
+
+    /// Streaming execution — returns chunks instead of buffering all output.
+    /// Shape matches what `executor.sh` SSE needs; `LocalProcessBackend` currently
+    /// buffers then chunks, `ContainerBackend` will stream truly.
+    pub async fn execute_streaming(&self, args: Value) -> Result<crate::backend::StreamingOutput> {
+        let started = Instant::now();
+        let (program, arguments, working_dir, stdin) = self.parse(&args)?;
+        let env = self.build_env();
+        let req = ExecRequest {
+            program,
+            args: arguments,
+            working_dir,
+            env,
+            stdin,
+            limits: ResourceLimits {
+                timeout: self.timeout,
+                output_limit: self.output_limit,
+                cpu_time: self.cpu_time,
+                memory_bytes: self.memory_bytes,
+            },
+        };
+        let _ = started;
+        self.backend.execute_streaming(req).await
+    }
+
     fn lookup(&self, program: &str) -> Option<&AllowedCommand> {
         self.commands
             .iter()
             .find(|candidate| candidate.program.as_os_str() == program)
     }
 
-    fn parse(&self, args: &Value) -> Result<(PathBuf, Vec<String>, Option<PathBuf>)> {
+    pub(crate) fn build_env(&self) -> HashMap<String, String> {
+        let mut env = HashMap::new();
+        if let Some(allowed) = &self.allowed_env {
+            for key in allowed {
+                if let Ok(val) = std::env::var(key) {
+                    env.insert(key.clone(), val);
+                }
+            }
+        }
+        for (k, v) in &self.extra_env {
+            env.insert(k.clone(), v.clone());
+        }
+        env
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn parse(
+        &self,
+        args: &Value,
+    ) -> Result<(PathBuf, Vec<String>, Option<PathBuf>, Option<Vec<u8>>)> {
         let program = args
             .get("program")
             .and_then(Value::as_str)
@@ -202,7 +301,34 @@ impl ShellTool {
             }
         };
 
-        Ok((allowed.program.clone(), arguments, working_dir))
+        // stdin handling — capped to stdin_limit, supports utf8 or base64
+        if args.get("stdin").is_some() && args.get("stdin_base64").is_some() {
+            bail!("provide only one of stdin or stdin_base64");
+        }
+        let stdin = if let Some(s) = args.get("stdin").and_then(Value::as_str) {
+            if s.len() > self.stdin_limit {
+                bail!("stdin_too_large");
+            }
+            Some(s.as_bytes().to_vec())
+        } else if let Some(b64) = args.get("stdin_base64").and_then(Value::as_str) {
+            // Pre-check raw length to avoid OOM on huge base64 before decode
+            if b64.len() > self.stdin_limit * 4 / 3 + 1024 {
+                bail!("stdin_too_large");
+            }
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(b64)
+                .map_err(|_| anyhow::anyhow!("invalid_base64"))?;
+            if bytes.len() > self.stdin_limit {
+                bail!("stdin_too_large");
+            }
+            Some(bytes)
+        } else if args.get("stdin").is_some() || args.get("stdin_base64").is_some() {
+            bail!("stdin must be string");
+        } else {
+            None
+        };
+
+        Ok((allowed.program.clone(), arguments, working_dir, stdin))
     }
 }
 
@@ -213,7 +339,7 @@ impl Tool for ShellTool {
     }
 
     fn description(&self) -> &str {
-        "Run an allowlisted executable with bounded runtime and output"
+        "Run an allowlisted binary (echo/cat/git, plus configured). Enforced by ArgumentPolicy (None/NoFlags/Exact). No shell — metachars inert. Use for git status, cat files via shell, or other allowlisted binaries. Prefer code tool for python/bash snippets."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -227,20 +353,26 @@ impl Tool for ShellTool {
             "properties": {
                 "program": {
                     "type": "string",
-                    "description": "Absolute path to an allowlisted executable",
+                    "description": "Absolute path to allowlisted executable. Must be in allowlist or command_not_allowed. Example: /bin/echo, /bin/cat, /usr/bin/git",
                     "enum": names
                 },
                 "args": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "Arguments, subject to this command's argument policy"
+                    "description": "Arguments obeying ArgumentPolicy. NoFlags blocks -flags, Exact only allows listed vectors. Example: [\"hello\"] for echo, [\"status\"] for git."
                 },
                 "working_dir": {
                     "type": "string",
-                    "description": "Directory to run in; must be inside the configured sandbox"
-                }
+                    "description": "Sandboxed working dir. Must be inside sandbox via Sandbox::resolve_existing. Omit to inherit parent."
+                },
+                "stdin": { "type": "string", "description": "UTF-8 stdin piped (max 1MiB). Use for cat << stdin." },
+                "stdin_base64": { "type": "string", "description": "Base64 stdin bytes (binary). Pre-checked raw len to avoid OOM." }
             },
-            "required": ["program"]
+            "required": ["program"],
+            "examples": [
+                {"program":"/bin/echo","args":["hello"]},
+                {"program":"/usr/bin/git","args":["status"],"working_dir":"/tmp/executiond/abc"}
+            ]
         })
     }
 
@@ -250,120 +382,80 @@ impl Tool for ShellTool {
 
     async fn execute(&self, args: Value) -> Result<ToolOutcome> {
         let started = Instant::now();
-        let (program, arguments, working_dir) = self.parse(&args)?;
+        let (program, arguments, working_dir, stdin) = self.parse(&args)?;
 
-        debug!(program = %program.display(), argc = arguments.len(), "shell exec");
+        debug!(
+            program = %program.display(),
+            argc = arguments.len(),
+            backend = %self.backend.name(),
+            "shell exec"
+        );
 
-        let mut command = Command::new(&program);
-        command
-            .args(&arguments)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            // Without this the child survives a timeout and keeps running
-            // unsupervised, which the original did.
-            .kill_on_drop(true);
+        let env = self.build_env();
+        let req = ExecRequest {
+            program: program.clone(),
+            args: arguments,
+            working_dir,
+            env,
+            stdin,
+            limits: ResourceLimits {
+                timeout: self.timeout,
+                output_limit: self.output_limit,
+                cpu_time: self.cpu_time,
+                memory_bytes: self.memory_bytes,
+            },
+        };
 
-        if let Some(dir) = &working_dir {
-            command.current_dir(dir);
-        }
-
-        let mut child = match command.spawn() {
-            Ok(child) => child,
-            Err(_) => {
+        let out = match self.backend.execute(req).await {
+            Ok(o) => o,
+            Err(e) if e.to_string().contains("spawn_failed") => {
                 return Ok(ToolOutcome::failure(
                     "shell",
                     "spawn_failed",
                     elapsed(started),
                 ))
             }
+            Err(e) => {
+                // Backend-specific error (e.g. wasm not enabled) surfaces as policy error
+                anyhow::bail!(e)
+            }
         };
 
-        let mut stdout = child.stdout.take().expect("stdout is piped");
-        let mut stderr = child.stderr.take().expect("stderr is piped");
-        let limit = self.output_limit;
-
-        let collect = async {
-            // Capped reads: an unbounded capture lets a chatty command exhaust
-            // memory in the supervising process.
-            let (out, err) = tokio::join!(
-                read_capped(&mut stdout, limit),
-                read_capped(&mut stderr, limit)
-            );
-            let status = child.wait().await?;
-            std::io::Result::Ok((status, out?, err?))
-        };
-
-        match tokio::time::timeout(self.timeout, collect).await {
-            Err(_) => Ok(ToolOutcome::failure("shell", "timed_out", elapsed(started))
-                .with_metadata("timeout_ms", self.timeout.as_millis().to_string())),
-
-            Ok(Err(_)) => Ok(ToolOutcome::failure("shell", "io_error", elapsed(started))),
-
-            Ok(Ok((status, (out, out_truncated), (err, err_truncated)))) => {
-                let code = status.code();
-                let summary = json!({
-                    "exit_code": code,
-                    "stdout_bytes": out.len(),
-                    "stdout_sha256": sha256_hex(&out),
-                    "stdout_truncated": out_truncated,
-                    "stderr_bytes": err.len(),
-                    "stderr_sha256": sha256_hex(&err),
-                    "stderr_truncated": err_truncated,
-                    "redaction_policy_version": crate::REDACTION_POLICY_VERSION,
-                });
-
-                let outcome = if status.success() {
-                    ToolOutcome::success("shell", summary, elapsed(started))
-                } else {
-                    let mut failed =
-                        ToolOutcome::failure("shell", "nonzero_exit", elapsed(started));
-                    failed.summary = summary;
-                    failed
-                };
-
-                // Command output is not redacted the way file contents are:
-                // an exit code alone is rarely actionable. It is returned as
-                // `content` rather than in the summary, so it is not logged by
-                // default.
-                Ok(outcome
-                    .with_content(out)
-                    .with_metadata(
-                        "exit_code",
-                        code.map(|c| c.to_string())
-                            .unwrap_or_else(|| "signal".into()),
-                    )
-                    .with_metadata("program", program.display().to_string()))
-            }
+        if out.timed_out {
+            return Ok(ToolOutcome::failure("shell", "timed_out", elapsed(started))
+                .with_metadata("timeout_ms", self.timeout.as_millis().to_string()));
         }
-    }
-}
 
-/// Read at most `limit` bytes, reporting whether more were available.
-async fn read_capped<R>(reader: &mut R, limit: usize) -> std::io::Result<(Vec<u8>, bool)>
-where
-    R: AsyncReadExt + Unpin,
-{
-    let mut buffer = Vec::new();
-    let mut chunk = [0u8; 8192];
-    let mut truncated = false;
+        let summary = json!({
+            "exit_code": out.exit_code,
+            "stdout_bytes": out.stdout.len(),
+            "stdout_sha256": crate::sha256_hex(&out.stdout),
+            "stdout_truncated": out.stdout_truncated,
+            "stderr_bytes": out.stderr.len(),
+            "stderr_sha256": crate::sha256_hex(&out.stderr),
+            "stderr_truncated": out.stderr_truncated,
+            "redaction_policy_version": crate::REDACTION_POLICY_VERSION,
+            "backend": self.backend.name(),
+        });
 
-    loop {
-        let read = reader.read(&mut chunk).await?;
-        if read == 0 {
-            break;
-        }
-        if buffer.len() < limit {
-            let room = limit - buffer.len();
-            buffer.extend_from_slice(&chunk[..read.min(room)]);
-            if read > room {
-                truncated = true;
-            }
+        let outcome = if out.exit_code == Some(0) {
+            ToolOutcome::success("shell", summary, elapsed(started))
         } else {
-            truncated = true;
-        }
+            let mut failed = ToolOutcome::failure("shell", "nonzero_exit", elapsed(started));
+            failed.summary = summary;
+            failed
+        };
+
+        Ok(outcome
+            .with_content(out.stdout)
+            .with_metadata(
+                "exit_code",
+                out.exit_code
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "signal".into()),
+            )
+            .with_metadata("program", program.display().to_string()))
     }
-    Ok((buffer, truncated))
 }
 
 fn elapsed(started: Instant) -> u64 {

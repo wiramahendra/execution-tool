@@ -3,8 +3,10 @@
 use std::time::Instant;
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::{json, Value};
 use tokio::fs;
+use tokio::io::AsyncReadExt;
 use tracing::debug;
 
 use crate::sandbox::{Sandbox, SandboxError};
@@ -50,7 +52,9 @@ impl FileSystemTool {
 
     /// Cap how many bytes a single read may return.
     pub fn with_read_limit(mut self, bytes: usize) -> Self {
-        self.read_limit = bytes;
+        // Clamp to prevent 0 (returns empty) or absurdly large (OOM)
+        let clamped = bytes.clamp(1, 64 * 1024 * 1024);
+        self.read_limit = clamped;
         self
     }
 
@@ -74,23 +78,37 @@ impl Tool for FileSystemTool {
     }
 
     fn description(&self) -> &str {
-        "Read, write, and list files within a sandboxed directory"
+        "Filesystem within sandbox — read/write/list/mkdir/delete/stat/copy/move/append/search/glob/patch. Use read to inspect, search/glob to discover, write/patch to edit. Prefer patch for single-line edits, write for new files. All paths must be inside sandbox; see sandbox error codes."
     }
 
     fn parameters_schema(&self) -> Value {
         let operations: Vec<&str> = if self.writable {
-            vec!["read", "write", "list"]
+            vec![
+                "read", "write", "list", "mkdir", "delete", "stat", "copy", "move", "append",
+                "search", "glob", "patch",
+            ]
         } else {
-            vec!["read", "list"]
+            vec!["read", "list", "stat", "search", "glob"]
         };
         json!({
             "type": "object",
             "properties": {
-                "operation": { "type": "string", "enum": operations },
-                "path": { "type": "string", "description": "Path inside the sandbox" },
-                "content": { "type": "string", "description": "Bytes to write (write only)" }
+                "operation": { "type": "string", "enum": operations, "description": "Filesystem operation. read: get file content (capped 8MiB). write: create/overwrite. patch: single replace. search: substring grep (1000 cap). glob: pattern match. Examples: read /tmp/work/a.txt, search /tmp/work for 'todo' recursive true" },
+                "path": { "type": "string", "description": "Absolute path inside sandbox (or base dir for glob/search). Example: /tmp/executiond/<session>/file.txt" },
+                "content": { "type": "string", "description": "UTF-8 bytes to write (write/append only). Example: write with content 'hello world'" },
+                "content_base64": { "type": "string", "description": "Base64 bytes for binary writes (alternative to content). Example: write PNG via content_base64" },
+                "destination": { "type": "string", "description": "Destination path for copy/move. Must be inside sandbox." },
+                "pattern": { "type": "string", "description": "Pattern for search (substring) or glob (e.g. **/*.py, *.txt). Keep <1024 chars, no .. or leading /." },
+                "recursive": { "type": "boolean", "description": "Search recursively (default false). Use true to walk subdirs.", "default": false },
+                "search": { "type": "string", "description": "Search string for patch (must exist, non-empty). Example: old text to replace." },
+                "replace": { "type": "string", "description": "Replacement for patch. Single occurrence only." }
             },
-            "required": ["operation", "path"]
+            "required": ["operation", "path"],
+            "examples": [
+                {"operation":"read","path":"/tmp/executiond/abc/file.txt"},
+                {"operation":"search","path":"/tmp/executiond/abc","pattern":"todo","recursive":true},
+                {"operation":"patch","path":"/tmp/executiond/abc/main.py","search":"old","replace":"new"}
+            ]
         })
     }
 
@@ -99,18 +117,97 @@ impl Tool for FileSystemTool {
         let path = Self::raw_path(args)?;
 
         match operation {
-            "read" | "list" => {
+            "read" | "list" | "stat" | "search" | "glob" => {
                 self.sandbox.resolve_existing(path).map_err(policy_error)?;
+                if operation == "search" {
+                    let pat = args
+                        .get("pattern")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("missing 'pattern' for search"))?;
+                    if pat.len() > 1024 {
+                        anyhow::bail!("pattern_too_long");
+                    }
+                }
+                if operation == "glob" {
+                    let pat = args
+                        .get("pattern")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("missing 'pattern' for glob"))?;
+                    if pat.len() > 1024 {
+                        anyhow::bail!("pattern_too_long");
+                    }
+                    if pat.contains("..") || pat.starts_with('/') {
+                        anyhow::bail!("invalid glob pattern");
+                    }
+                }
             }
-            "write" => {
+            "write" | "append" => {
                 if !self.writable {
                     anyhow::bail!("writes_not_permitted");
                 }
                 self.sandbox
                     .resolve_for_create(path)
                     .map_err(policy_error)?;
-                if args.get("content").and_then(Value::as_str).is_none() {
-                    anyhow::bail!("missing 'content' for write");
+                let has_str = args.get("content").and_then(Value::as_str).is_some();
+                let has_b64 = args.get("content_base64").and_then(Value::as_str).is_some();
+                if !has_str && !has_b64 {
+                    anyhow::bail!("missing 'content' or 'content_base64' for write");
+                }
+                if has_str && has_b64 {
+                    anyhow::bail!("provide only one of 'content' or 'content_base64'");
+                }
+                if has_b64 {
+                    BASE64
+                        .decode(args.get("content_base64").unwrap().as_str().unwrap())
+                        .map_err(|_| anyhow::anyhow!("invalid_base64"))?;
+                }
+            }
+            "mkdir" | "delete" => {
+                if !self.writable {
+                    anyhow::bail!("writes_not_permitted");
+                }
+                if operation == "delete" {
+                    self.sandbox.resolve_existing(path).map_err(policy_error)?;
+                } else {
+                    self.sandbox
+                        .resolve_for_create(path)
+                        .map_err(policy_error)?;
+                }
+            }
+            "copy" | "move" => {
+                if !self.writable {
+                    anyhow::bail!("writes_not_permitted");
+                }
+                self.sandbox.resolve_existing(path).map_err(policy_error)?;
+                let dest = args
+                    .get("destination")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("missing 'destination' for copy/move"))?;
+                self.sandbox
+                    .resolve_for_create(dest)
+                    .map_err(policy_error)?;
+            }
+            "patch" => {
+                if !self.writable {
+                    anyhow::bail!("writes_not_permitted");
+                }
+                self.sandbox.resolve_existing(path).map_err(policy_error)?;
+                let search = args
+                    .get("search")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("missing 'search' for patch"))?;
+                if search.is_empty() {
+                    anyhow::bail!("search_empty");
+                }
+                if search.len() > 4096 {
+                    anyhow::bail!("search_too_long");
+                }
+                let replace = args
+                    .get("replace")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("missing 'replace' for patch"))?;
+                if replace.len() > 4096 {
+                    anyhow::bail!("replace_too_long");
                 }
             }
             other => anyhow::bail!("unsupported_operation: {other}"),
@@ -128,24 +225,33 @@ impl Tool for FileSystemTool {
 
         match operation {
             "read" => {
-                let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
-                match fs::read(&path).await {
+                // Linux: use openat2 fd for I/O to close TOCTOU (darwin falls back to check-then-open)
+                #[cfg(target_os = "linux")]
+                let read_result = {
+                    match self.sandbox.open_existing_file(raw) {
+                        Ok(std_file) => {
+                            let tokio_file = tokio::fs::File::from_std(std_file);
+                            read_capped_from_file(tokio_file, self.read_limit).await
+                        }
+                        Err(e) => Err(std::io::Error::new(
+                            std::io::ErrorKind::PermissionDenied,
+                            e.to_string(),
+                        )),
+                    }
+                };
+                #[cfg(not(target_os = "linux"))]
+                let read_result = {
+                    let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                    read_file_capped(&path, self.read_limit).await
+                };
+                #[cfg(target_os = "linux")]
+                let read_outcome = match read_result {
                     Err(e) => Ok(ToolOutcome::failure(
                         "filesystem",
                         io_code(&e),
                         elapsed(started),
                     )),
-                    Ok(bytes) => {
-                        let total = bytes.len();
-                        let truncated = total > self.read_limit;
-                        let bytes = if truncated {
-                            bytes[..self.read_limit].to_vec()
-                        } else {
-                            bytes
-                        };
-                        // The digest covers the bytes actually returned, so a
-                        // caller can verify what they were given rather than
-                        // what was on disk.
+                    Ok((bytes, total, truncated)) => {
                         let digest = sha256_hex(&bytes);
                         Ok(ToolOutcome::success(
                             "filesystem",
@@ -163,17 +269,49 @@ impl Tool for FileSystemTool {
                         .with_content(bytes)
                         .with_metadata("operation", "read"))
                     }
-                }
+                };
+                #[cfg(not(target_os = "linux"))]
+                let read_outcome = match read_result {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok((bytes, total, truncated)) => {
+                        let digest = sha256_hex(&bytes);
+                        Ok(ToolOutcome::success(
+                            "filesystem",
+                            json!({
+                                "operation": "read",
+                                "bytes": bytes.len(),
+                                "file_bytes": total,
+                                "truncated": truncated,
+                                "sha256": digest,
+                                "content_redacted": true,
+                                "redaction_policy_version": crate::REDACTION_POLICY_VERSION,
+                            }),
+                            elapsed(started),
+                        )
+                        .with_content(bytes)
+                        .with_metadata("operation", "read"))
+                    }
+                };
+                read_outcome
             }
 
             "write" => {
                 let path = self.sandbox.resolve_for_create(raw).map_err(policy_error)?;
-                let content = args
-                    .get("content")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow::anyhow!("missing 'content'"))?;
+                let bytes: Vec<u8> = if let Some(s) = args.get("content").and_then(Value::as_str) {
+                    s.as_bytes().to_vec()
+                } else if let Some(b64) = args.get("content_base64").and_then(Value::as_str) {
+                    BASE64
+                        .decode(b64)
+                        .map_err(|_| anyhow::anyhow!("invalid_base64"))?
+                } else {
+                    anyhow::bail!("missing 'content'");
+                };
 
-                match fs::write(&path, content).await {
+                match fs::write(&path, &bytes).await {
                     Err(e) => Ok(ToolOutcome::failure(
                         "filesystem",
                         io_code(&e),
@@ -183,13 +321,372 @@ impl Tool for FileSystemTool {
                         "filesystem",
                         json!({
                             "operation": "write",
-                            "bytes": content.len(),
-                            "sha256": sha256_hex(content.as_bytes()),
+                            "bytes": bytes.len(),
+                            "sha256": sha256_hex(&bytes),
                             "redaction_policy_version": crate::REDACTION_POLICY_VERSION,
                         }),
                         elapsed(started),
                     )
                     .with_metadata("operation", "write")),
+                }
+            }
+
+            "mkdir" => {
+                let path = self.sandbox.resolve_for_create(raw).map_err(policy_error)?;
+                match fs::create_dir_all(&path).await {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(()) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({"operation": "mkdir", "path": path.display().to_string()}),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "mkdir")),
+                }
+            }
+
+            "stat" => {
+                let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                match fs::metadata(&path).await {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(m) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({
+                            "operation": "stat",
+                            "path": path.display().to_string(),
+                            "is_file": m.is_file(),
+                            "is_dir": m.is_dir(),
+                            "len": m.len(),
+                            "readonly": m.permissions().readonly(),
+                        }),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "stat")),
+                }
+            }
+
+            "copy" => {
+                let src = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                let dest_raw = args
+                    .get("destination")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("missing 'destination'"))?;
+                let dest = self
+                    .sandbox
+                    .resolve_for_create(dest_raw)
+                    .map_err(policy_error)?;
+                // ensure src and dest are not same
+                if src == dest {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "same_file",
+                        elapsed(started),
+                    ));
+                }
+                match fs::copy(&src, &dest).await {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(n) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({"operation": "copy", "bytes": n, "src": src.display().to_string(), "dest": dest.display().to_string()}),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "copy")),
+                }
+            }
+
+            "move" => {
+                let src = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                let dest_raw = args
+                    .get("destination")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("missing 'destination'"))?;
+                let dest = self
+                    .sandbox
+                    .resolve_for_create(dest_raw)
+                    .map_err(policy_error)?;
+                if self.sandbox.roots().iter().any(|r| r == &src) {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "refused_move_root",
+                        elapsed(started),
+                    ));
+                }
+                match fs::rename(&src, &dest).await {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(()) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({"operation": "move", "src": src.display().to_string(), "dest": dest.display().to_string()}),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "move")),
+                }
+            }
+
+            "append" => {
+                let path = self.sandbox.resolve_for_create(raw).map_err(policy_error)?;
+                let bytes: Vec<u8> = if let Some(s) = args.get("content").and_then(Value::as_str) {
+                    s.as_bytes().to_vec()
+                } else if let Some(b64) = args.get("content_base64").and_then(Value::as_str) {
+                    BASE64
+                        .decode(b64)
+                        .map_err(|_| anyhow::anyhow!("invalid_base64"))?
+                } else {
+                    anyhow::bail!("missing 'content'");
+                };
+                // Append via read + write to avoid needing OpenOptions; keeps sandbox check simple
+                let existing = fs::read(&path).await.unwrap_or_default();
+                let mut combined = existing;
+                combined.extend_from_slice(&bytes);
+                match fs::write(&path, &combined).await {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(()) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({"operation": "append", "bytes": bytes.len(), "sha256": sha256_hex(&bytes)}),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "append")),
+                }
+            }
+
+            "search" => {
+                let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                let pattern = args.get("pattern").and_then(Value::as_str).unwrap_or("");
+                let recursive = args
+                    .get("recursive")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let mut matches = Vec::new();
+                let mut count = 0usize;
+                // Simple substring search, not regex, to avoid ReDoS.
+                let search_path = path.clone();
+                let pat = pattern.to_string();
+                // For single file, just grep it with size cap.
+                let meta = fs::metadata(&search_path).await;
+                if let Ok(m) = meta {
+                    if m.is_file() {
+                        if m.len() > self.read_limit as u64 * 4 {
+                            // Skip huge files to avoid OOM
+                        } else if let Ok((bytes, _, _)) =
+                            read_file_capped(&search_path, self.read_limit.min(1024 * 1024)).await
+                        {
+                            let content = String::from_utf8_lossy(&bytes);
+                            for (idx, line) in content.lines().enumerate() {
+                                if line.contains(&pat) {
+                                    matches.push(json!({"file": search_path.display().to_string(), "line": idx + 1, "text": line.chars().take(512).collect::<String>()}));
+                                    count += 1;
+                                    if count >= 1000 {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if m.is_dir() {
+                        // Walk dir one level or recursive
+                        let mut stack = vec![search_path];
+                        while let Some(dir) = stack.pop() {
+                            if let Ok(mut entries) = fs::read_dir(&dir).await {
+                                while let Ok(Some(entry)) = entries.next_entry().await {
+                                    if let Ok(ft) = entry.file_type().await {
+                                        let p = entry.path();
+                                        if ft.is_dir() && recursive {
+                                            // ensure stays inside sandbox
+                                            if let Ok(canonical) = p.canonicalize() {
+                                                if self
+                                                    .sandbox
+                                                    .roots()
+                                                    .iter()
+                                                    .any(|r| canonical.starts_with(r))
+                                                {
+                                                    stack.push(p);
+                                                }
+                                            }
+                                        } else if ft.is_file() {
+                                            // Ensure file itself is inside sandbox (symlink check).
+                                            if let Ok(canonical) = p.canonicalize() {
+                                                if !self
+                                                    .sandbox
+                                                    .roots()
+                                                    .iter()
+                                                    .any(|r| canonical.starts_with(r))
+                                                {
+                                                    continue;
+                                                }
+                                            } else {
+                                                continue;
+                                            }
+                                            // Cap per-file read to avoid OOM on large files
+                                            if let Ok(meta) = tokio::fs::metadata(&p).await {
+                                                if meta.len() <= self.read_limit as u64 * 4 {
+                                                    if let Ok((bytes, _, _)) = read_file_capped(
+                                                        &p,
+                                                        self.read_limit.min(1024 * 1024),
+                                                    )
+                                                    .await
+                                                    {
+                                                        let content =
+                                                            String::from_utf8_lossy(&bytes);
+                                                        for (idx, line) in
+                                                            content.lines().enumerate()
+                                                        {
+                                                            if line.contains(&pat) {
+                                                                matches.push(json!({"file": p.display().to_string(), "line": idx + 1, "text": line.chars().take(512).collect::<String>()}));
+                                                                count += 1;
+                                                                if count >= 1000 {
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if count >= 1000 {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if count >= 1000 {
+                                break;
+                            }
+                        }
+                    }
+                }
+                Ok(ToolOutcome::success(
+                    "filesystem",
+                    json!({"operation": "search", "pattern": pat, "matches": matches, "count": count}),
+                    elapsed(started),
+                )
+                .with_metadata("operation", "search"))
+            }
+
+            "glob" => {
+                let base = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                let pattern = args.get("pattern").and_then(Value::as_str).unwrap_or("*");
+                // Build glob pattern relative to base, e.g. base + "/" + pattern
+                let full_pattern = format!("{}/{}", base.display(), pattern);
+                let mut matches = Vec::new();
+                if let Ok(paths) = glob::glob(&full_pattern) {
+                    for entry in paths.flatten() {
+                        // Must canonicalize and be inside sandbox; deny if canonical fails.
+                        if let Ok(canonical) = entry.canonicalize() {
+                            if self
+                                .sandbox
+                                .roots()
+                                .iter()
+                                .any(|r| canonical.starts_with(r))
+                            {
+                                matches.push(entry.display().to_string());
+                            }
+                        }
+                        if matches.len() >= 1000 {
+                            break;
+                        }
+                    }
+                }
+                matches.sort();
+                Ok(ToolOutcome::success(
+                    "filesystem",
+                    json!({"operation": "glob", "pattern": pattern, "matches": matches, "count": matches.len()}),
+                    elapsed(started),
+                )
+                .with_metadata("operation", "glob"))
+            }
+
+            "patch" => {
+                let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                let search = args.get("search").and_then(Value::as_str).unwrap_or("");
+                let replace = args.get("replace").and_then(Value::as_str).unwrap_or("");
+                if search.is_empty() {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "search_empty",
+                        elapsed(started),
+                    ));
+                }
+                // Cap file size for patch
+                let meta = fs::metadata(&path)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", io_code(&e)))?;
+                if meta.len() > self.read_limit as u64 {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "file_too_large",
+                        elapsed(started),
+                    ));
+                }
+                let content = fs::read_to_string(&path)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", io_code(&e)))?;
+                if !content.contains(search) {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "search_not_found",
+                        elapsed(started),
+                    ));
+                }
+                let new_content = content.replacen(search, replace, 1);
+                let changed = new_content != content;
+                if changed {
+                    fs::write(&path, new_content.as_bytes())
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{}", io_code(&e)))?;
+                }
+                Ok(ToolOutcome::success(
+                    "filesystem",
+                    json!({"operation": "patch", "changed": changed, "sha256": sha256_hex(new_content.as_bytes())}),
+                    elapsed(started),
+                )
+                .with_metadata("operation", "patch"))
+            }
+
+            "delete" => {
+                let path = self.sandbox.resolve_existing(raw).map_err(policy_error)?;
+                // refuse to delete sandbox root itself
+                if self.sandbox.roots().iter().any(|r| r == &path) {
+                    return Ok(ToolOutcome::failure(
+                        "filesystem",
+                        "refused_delete_root",
+                        elapsed(started),
+                    ));
+                }
+                let meta = tokio::fs::symlink_metadata(&path).await;
+                let result = match meta {
+                    Ok(m) if m.is_dir() => fs::remove_dir_all(&path).await,
+                    Ok(_) => fs::remove_file(&path).await,
+                    Err(e) => Err(e),
+                };
+                match result {
+                    Err(e) => Ok(ToolOutcome::failure(
+                        "filesystem",
+                        io_code(&e),
+                        elapsed(started),
+                    )),
+                    Ok(()) => Ok(ToolOutcome::success(
+                        "filesystem",
+                        json!({"operation": "delete", "path": path.display().to_string()}),
+                        elapsed(started),
+                    )
+                    .with_metadata("operation", "delete")),
                 }
             }
 
@@ -267,6 +764,61 @@ fn io_code(error: &std::io::Error) -> &'static str {
 
 fn elapsed(started: Instant) -> u64 {
     started.elapsed().as_millis() as u64
+}
+
+async fn read_file_capped(
+    path: &std::path::Path,
+    limit: usize,
+) -> std::io::Result<(Vec<u8>, usize, bool)> {
+    let mut file = tokio::fs::File::open(path).await?;
+    read_capped_from_file_helper(&mut file, limit).await
+}
+
+#[cfg(target_os = "linux")]
+async fn read_capped_from_file(
+    mut file: tokio::fs::File,
+    limit: usize,
+) -> std::io::Result<(Vec<u8>, usize, bool)> {
+    use tokio::io::AsyncReadExt;
+    read_capped_from_file_helper(&mut file, limit).await
+}
+
+async fn read_capped_from_file_helper<R>(
+    file: &mut R,
+    limit: usize,
+) -> std::io::Result<(Vec<u8>, usize, bool)>
+where
+    R: tokio::io::AsyncReadExt + Unpin,
+{
+    let mut buf = Vec::new();
+    let mut total: usize = 0;
+    let mut chunk = [0u8; 8192];
+    let mut truncated = false;
+    loop {
+        let n = file.read(&mut chunk).await?;
+        if n == 0 {
+            break;
+        }
+        total = total.saturating_add(n);
+        if buf.len() < limit {
+            let room = limit - buf.len();
+            buf.extend_from_slice(&chunk[..n.min(room)]);
+            if n > room {
+                truncated = true;
+            }
+        } else {
+            truncated = true;
+        }
+        // If file is huge, keep counting but not buffering beyond limit
+        if total > limit && buf.len() >= limit {
+            // Continue draining to get accurate file size but without extra allocation
+            // We already counted; just drain remaining without storing
+            // To avoid infinite loop on infinite file, cap counting at limit*2 for total accuracy?
+            // We keep reading to get true total until EOF
+        }
+    }
+    let was_truncated = truncated || total > limit;
+    Ok((buf, total, was_truncated))
 }
 
 #[cfg(test)]
@@ -504,13 +1056,82 @@ mod tests {
         let read_only = f.tool().parameters_schema();
         assert_eq!(
             read_only["properties"]["operation"]["enum"],
-            json!(["read", "list"])
+            json!(["read", "list", "stat", "search", "glob"])
         );
 
         let writable = f.tool().writable().parameters_schema();
         assert_eq!(
             writable["properties"]["operation"]["enum"],
-            json!(["read", "write", "list"])
+            json!([
+                "read", "write", "list", "mkdir", "delete", "stat", "copy", "move", "append",
+                "search", "glob", "patch"
+            ])
         );
+    }
+
+    #[tokio::test]
+    async fn glob_finds_matching_files() {
+        let f = Fixture::new("glob");
+        std::fs::write(f.path("safe/a.txt"), "").unwrap();
+        std::fs::write(f.path("safe/b.txt"), "").unwrap();
+        std::fs::write(f.path("safe/c.rs"), "").unwrap();
+        let out = f
+            .tool()
+            .writable()
+            .execute(json!({"operation":"glob","path": f.path("safe").to_string_lossy(), "pattern":"*.txt"}))
+            .await
+            .unwrap();
+        assert!(out.success);
+        assert_eq!(out.summary["count"], json!(2));
+        let matches = out.summary["matches"].as_array().unwrap();
+        assert!(matches
+            .iter()
+            .any(|v| v.as_str().unwrap().ends_with("a.txt")));
+    }
+
+    #[tokio::test]
+    async fn patch_replaces_content() {
+        let f = Fixture::new("patch");
+        std::fs::write(f.path("safe/file.txt"), "hello world").unwrap();
+        let out = f
+            .tool()
+            .writable()
+            .execute(json!({"operation":"patch","path": f.path("safe/file.txt").to_string_lossy(), "search":"world","replace":"Rust"}))
+            .await
+            .unwrap();
+        assert!(out.success);
+        assert_eq!(out.summary["changed"], json!(true));
+        assert_eq!(
+            std::fs::read_to_string(f.path("safe/file.txt")).unwrap(),
+            "hello Rust"
+        );
+    }
+
+    #[tokio::test]
+    async fn patch_fails_if_search_not_found() {
+        let f = Fixture::new("patch_fail");
+        std::fs::write(f.path("safe/file.txt"), "hello").unwrap();
+        let out = f
+            .tool()
+            .writable()
+            .execute(json!({"operation":"patch","path": f.path("safe/file.txt").to_string_lossy(), "search":"missing","replace":"x"}))
+            .await
+            .unwrap();
+        assert!(!out.success);
+        assert_eq!(out.error_code.as_deref(), Some("search_not_found"));
+    }
+
+    #[tokio::test]
+    async fn stat_returns_metadata() {
+        let f = Fixture::new("stat");
+        std::fs::write(f.path("safe/file.txt"), "12345").unwrap();
+        let out = f
+            .tool()
+            .execute(json!({"operation":"stat","path": f.path("safe/file.txt").to_string_lossy()}))
+            .await
+            .unwrap();
+        assert!(out.success);
+        assert_eq!(out.summary["is_file"], json!(true));
+        assert_eq!(out.summary["len"], json!(5));
     }
 }
