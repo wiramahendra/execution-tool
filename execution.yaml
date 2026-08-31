@@ -1,0 +1,35 @@
+# execution.yaml — Policy as Code (Phase 3)
+# Validate: cargo run --bin executiond -- --config ./execution.yaml --help
+# Hot reload: executiond watches this file via `notify` and swaps registry atomically.
+
+workspace: /tmp/executiond
+concurrency: 32
+audit_log: ./audit.jsonl
+
+filesystem:
+  writable: true
+  read_limit: 8388608  # 8 MiB
+
+shell:
+  timeout_ms: 10000
+  output_limit: 1048576
+  # allowed_env: [PATH, TZ]  # if set, only these inherited; otherwise env_clear
+  commands:
+    - program: /bin/echo
+      args: NoFlags
+    - program: /bin/cat
+      args: NoFlags
+    - program: /usr/bin/git
+      args:
+        Exact: [["status"], ["log", "--oneline"]]
+
+http:
+  allowed_hosts: [api.github.com, registry.npmjs.org]
+  request_body_limit: 1048576
+  response_body_limit: 4194304
+  timeout_ms: 30000
+
+code:
+  allowed_languages: [python, bash, javascript]
+  timeout_ms: 10000
+  output_limit: 1048576

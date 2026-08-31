@@ -1,0 +1,9 @@
+{
+  "name": "execution-tool-sdk",
+  "version": "0.1.0",
+  "description": "JS SDK for executiond — filesystem/shell/http with SSRF + sandbox policy",
+  "type": "module",
+  "main": "index.js",
+  "keywords": ["agent", "sandbox", "executor"],
+  "license": "MIT"
+}
