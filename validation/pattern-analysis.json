@@ -1,0 +1,280 @@
+{
+  "duration_dominance": {
+    "read": 250,
+    "search": 1008,
+    "shell": 566,
+    "write": 10
+  },
+  "success_after": [
+    {
+      "failure": 0,
+      "op": "read",
+      "success": 46
+    },
+    {
+      "failure": 0,
+      "op": "search",
+      "success": 18
+    },
+    {
+      "failure": 0,
+      "op": "shell",
+      "success": 34
+    },
+    {
+      "failure": 0,
+      "op": "write",
+      "success": 16
+    }
+  ],
+  "top_bigrams": [
+    {
+      "bigram": "search→read",
+      "count": 16,
+      "median_turns_between": 0.0,
+      "task_coverage": 14,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse",
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "inv_003_audit_logging",
+        "inv_004_registry_batch_sequence",
+        "ref_001_collector_helper",
+        "ref_002_error_codes",
+        "ref_003_analyzer_tokens",
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    },
+    {
+      "bigram": "write→shell",
+      "count": 16,
+      "median_turns_between": 0.0,
+      "task_coverage": 16,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse",
+        "cfg_001_audit_dep",
+        "cfg_002_gitignore_worktree",
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "feat_003_manifest_complexity",
+        "feat_004_verification_retry_metric",
+        "ref_001_collector_helper",
+        "ref_002_error_codes",
+        "ref_003_analyzer_tokens",
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    },
+    {
+      "bigram": "read→read",
+      "count": 14,
+      "median_turns_between": 0.5,
+      "task_coverage": 11,
+      "tasks": [
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "feat_003_manifest_complexity",
+        "feat_004_verification_retry_metric",
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "inv_003_audit_logging",
+        "inv_004_registry_batch_sequence",
+        "ref_001_collector_helper",
+        "ref_002_error_codes",
+        "ref_003_analyzer_tokens"
+      ]
+    },
+    {
+      "bigram": "read→write",
+      "count": 12,
+      "median_turns_between": 1.0,
+      "task_coverage": 12,
+      "tasks": [
+        "cfg_001_audit_dep",
+        "cfg_002_gitignore_worktree",
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "feat_003_manifest_complexity",
+        "feat_004_verification_retry_metric",
+        "ref_001_collector_helper",
+        "ref_002_error_codes",
+        "ref_003_analyzer_tokens",
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    },
+    {
+      "bigram": "read→search",
+      "count": 11,
+      "median_turns_between": 0.0,
+      "task_coverage": 11,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse",
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "inv_003_audit_logging",
+        "inv_004_registry_batch_sequence",
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    },
+    {
+      "bigram": "read→shell",
+      "count": 9,
+      "median_turns_between": 0.0,
+      "task_coverage": 8,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse",
+        "feat_004_verification_retry_metric",
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "test_002_stress_leak"
+      ]
+    },
+    {
+      "bigram": "shell→read",
+      "count": 6,
+      "median_turns_between": 0.5,
+      "task_coverage": 5,
+      "tasks": [
+        "bug_004_collector_status_parse",
+        "feat_004_verification_retry_metric",
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    },
+    {
+      "bigram": "shell→shell",
+      "count": 6,
+      "median_turns_between": 1.0,
+      "task_coverage": 5,
+      "tasks": [
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "feat_003_manifest_complexity",
+        "feat_004_verification_retry_metric",
+        "ref_002_error_codes"
+      ]
+    },
+    {
+      "bigram": "shell→write",
+      "count": 4,
+      "median_turns_between": 1.0,
+      "task_coverage": 4,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse"
+      ]
+    }
+  ],
+  "top_trigrams": [
+    {
+      "count": 12,
+      "task_coverage": 12,
+      "trigram": "read→write→shell"
+    },
+    {
+      "count": 9,
+      "task_coverage": 9,
+      "trigram": "read→search→read"
+    },
+    {
+      "count": 7,
+      "task_coverage": 7,
+      "trigram": "read→read→write"
+    },
+    {
+      "count": 7,
+      "task_coverage": 7,
+      "trigram": "search→read→read"
+    },
+    {
+      "count": 6,
+      "task_coverage": 6,
+      "trigram": "search→read→shell"
+    },
+    {
+      "count": 5,
+      "task_coverage": 5,
+      "trigram": "write→shell→shell"
+    },
+    {
+      "count": 4,
+      "task_coverage": 4,
+      "trigram": "read→read→search"
+    },
+    {
+      "count": 4,
+      "task_coverage": 4,
+      "trigram": "read→shell→write"
+    },
+    {
+      "count": 4,
+      "task_coverage": 4,
+      "trigram": "shell→write→shell"
+    },
+    {
+      "count": 3,
+      "task_coverage": 3,
+      "trigram": "read→read→read"
+    },
+    {
+      "count": 3,
+      "task_coverage": 3,
+      "trigram": "search→read→write"
+    },
+    {
+      "count": 3,
+      "task_coverage": 3,
+      "trigram": "shell→read→search"
+    },
+    {
+      "count": 3,
+      "task_coverage": 3,
+      "trigram": "shell→read→shell"
+    },
+    {
+      "count": 2,
+      "task_coverage": 2,
+      "trigram": "write→shell→read"
+    },
+    {
+      "count": 1,
+      "task_coverage": 1,
+      "trigram": "shell→shell→read"
+    },
+    {
+      "count": 1,
+      "task_coverage": 1,
+      "trigram": "shell→shell→shell"
+    }
+  ],
+  "total_tasks": 20,
+  "total_tool_calls": 114,
+  "volume_dominance": {
+    "read": 46,
+    "search": 18,
+    "shell": 34,
+    "write": 16
+  }
+}
