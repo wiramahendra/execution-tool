@@ -1,0 +1,678 @@
+{
+  "agent_turns": {
+    "count": 20,
+    "max": 4,
+    "mean": 3.0,
+    "median": 3.0,
+    "min": 2,
+    "p25": 3.0,
+    "p75": 3.0
+  },
+  "by_category": {
+    "bugfix": {
+      "count": 4,
+      "median_calls": 6.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "bug_004_collector_status_parse"
+      ]
+    },
+    "configuration": {
+      "count": 2,
+      "median_calls": 3.0,
+      "median_turns": 2.0,
+      "tasks": [
+        "cfg_001_audit_dep",
+        "cfg_002_gitignore_worktree"
+      ]
+    },
+    "feature": {
+      "count": 4,
+      "median_calls": 5.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "feat_003_manifest_complexity",
+        "feat_004_verification_retry_metric"
+      ]
+    },
+    "investigation": {
+      "count": 4,
+      "median_calls": 6.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "inv_003_audit_logging",
+        "inv_004_registry_batch_sequence"
+      ]
+    },
+    "refactor": {
+      "count": 3,
+      "median_calls": 6.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "ref_001_collector_helper",
+        "ref_002_error_codes",
+        "ref_003_analyzer_tokens"
+      ]
+    },
+    "testfailure": {
+      "count": 3,
+      "median_calls": 6.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "test_001_escapes_symlink",
+        "test_002_stress_leak",
+        "test_003_token_null"
+      ]
+    }
+  },
+  "by_complexity": {
+    "complex": {
+      "count": 4,
+      "median_calls": 8.0,
+      "median_turns": 4.0,
+      "tasks": [
+        "bug_004_collector_status_parse",
+        "feat_004_verification_retry_metric",
+        "ref_002_error_codes",
+        "test_002_stress_leak"
+      ]
+    },
+    "medium": {
+      "count": 10,
+      "median_calls": 6.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "bug_002_header_allowlist",
+        "bug_003_base64_write",
+        "cfg_002_gitignore_worktree",
+        "feat_001_stat_summary",
+        "feat_002_env_redaction_doc",
+        "inv_001_ssrf_destination",
+        "inv_002_sandbox_toctou",
+        "ref_001_collector_helper",
+        "ref_003_analyzer_tokens",
+        "test_001_escapes_symlink"
+      ]
+    },
+    "simple": {
+      "count": 6,
+      "median_calls": 5.0,
+      "median_turns": 3.0,
+      "tasks": [
+        "bug_001_read_limit_clamp",
+        "cfg_001_audit_dep",
+        "feat_003_manifest_complexity",
+        "inv_003_audit_logging",
+        "inv_004_registry_batch_sequence",
+        "test_003_token_null"
+      ]
+    }
+  },
+  "by_success": {
+    "failure": {
+      "count": 3
+    },
+    "success": {
+      "count": 17
+    }
+  },
+  "experiment_id": "exp_baseline_001",
+  "failed": 3,
+  "invalid_runs": 0,
+  "metrics": [
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "bug_001_read_limit_clamp",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 408,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 91,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "bug_002_header_allowlist",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 408,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 69,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 2,
+      "verification_fail_count": 0,
+      "verification_pass_count": 2
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "bug_003_base64_write",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 441,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 122,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 4,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 800,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 4,
+      "model_visible_tool_call_count": 8,
+      "output_tokens": 400,
+      "retry_count": 0,
+      "task_id": "bug_004_collector_status_parse",
+      "task_success": "failure",
+      "task_wall_clock_duration_ms": 362,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 3
+      },
+      "tool_execution_duration_ms_total": 57,
+      "total_known_tokens": 1200,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 1,
+      "verification_pass_count": 0
+    },
+    {
+      "agent_turn_count": 2,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 400,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 2,
+      "model_visible_tool_call_count": 3,
+      "output_tokens": 200,
+      "retry_count": 0,
+      "task_id": "cfg_001_audit_dep",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 265,
+      "tool_calls_by_tool": {
+        "filesystem": 2,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 8,
+      "total_known_tokens": 600,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 2,
+      "verification_fail_count": 0,
+      "verification_pass_count": 2
+    },
+    {
+      "agent_turn_count": 2,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 400,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 2,
+      "model_visible_tool_call_count": 3,
+      "output_tokens": 200,
+      "retry_count": 0,
+      "task_id": "cfg_002_gitignore_worktree",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 242,
+      "tool_calls_by_tool": {
+        "filesystem": 2,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 7,
+      "total_known_tokens": 600,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 5,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "feat_001_stat_summary",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 305,
+      "tool_calls_by_tool": {
+        "filesystem": 3,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 20,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 5,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "feat_002_env_redaction_doc",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 440,
+      "tool_calls_by_tool": {
+        "filesystem": 3,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 97,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 5,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "feat_003_manifest_complexity",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 302,
+      "tool_calls_by_tool": {
+        "filesystem": 3,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 22,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 4,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 800,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 4,
+      "model_visible_tool_call_count": 7,
+      "output_tokens": 400,
+      "retry_count": 0,
+      "task_id": "feat_004_verification_retry_metric",
+      "task_success": "failure",
+      "task_wall_clock_duration_ms": 419,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 3
+      },
+      "tool_execution_duration_ms_total": 113,
+      "total_known_tokens": 1200,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 1,
+      "verification_pass_count": 0
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 0,
+      "input_tokens": 600,
+      "lines_added": null,
+      "lines_deleted": null,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "inv_001_ssrf_destination",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 463,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 108,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 0,
+      "input_tokens": 600,
+      "lines_added": null,
+      "lines_deleted": null,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "inv_002_sandbox_toctou",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 409,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 109,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 2,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 0,
+      "input_tokens": 400,
+      "lines_added": null,
+      "lines_deleted": null,
+      "model_round_trip_count": 2,
+      "model_visible_tool_call_count": 4,
+      "output_tokens": 200,
+      "retry_count": 0,
+      "task_id": "inv_003_audit_logging",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 669,
+      "tool_calls_by_tool": {
+        "filesystem": 4
+      },
+      "tool_execution_duration_ms_total": 449,
+      "total_known_tokens": 600,
+      "unique_tool_count": 1,
+      "variant": "baseline",
+      "verification_count": 2,
+      "verification_fail_count": 0,
+      "verification_pass_count": 2
+    },
+    {
+      "agent_turn_count": 2,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 0,
+      "input_tokens": 400,
+      "lines_added": null,
+      "lines_deleted": null,
+      "model_round_trip_count": 2,
+      "model_visible_tool_call_count": 4,
+      "output_tokens": 200,
+      "retry_count": 0,
+      "task_id": "inv_004_registry_batch_sequence",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 342,
+      "tool_calls_by_tool": {
+        "filesystem": 4
+      },
+      "tool_execution_duration_ms_total": 78,
+      "total_known_tokens": 600,
+      "unique_tool_count": 1,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "ref_001_collector_helper",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 506,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 156,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 4,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 800,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 4,
+      "model_visible_tool_call_count": 8,
+      "output_tokens": 400,
+      "retry_count": 0,
+      "task_id": "ref_002_error_codes",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 435,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 3
+      },
+      "tool_execution_duration_ms_total": 168,
+      "total_known_tokens": 1200,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 2,
+      "verification_fail_count": 0,
+      "verification_pass_count": 2
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "ref_003_analyzer_tokens",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 502,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 1
+      },
+      "tool_execution_duration_ms_total": 85,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "test_001_escapes_symlink",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 363,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 21,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    },
+    {
+      "agent_turn_count": 4,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 800,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 4,
+      "model_visible_tool_call_count": 8,
+      "output_tokens": 400,
+      "retry_count": 0,
+      "task_id": "test_002_stress_leak",
+      "task_success": "failure",
+      "task_wall_clock_duration_ms": 292,
+      "tool_calls_by_tool": {
+        "filesystem": 5,
+        "shell": 3
+      },
+      "tool_execution_duration_ms_total": 34,
+      "total_known_tokens": 1200,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 1,
+      "verification_pass_count": 0
+    },
+    {
+      "agent_turn_count": 3,
+      "experiment_id": "exp_baseline_001",
+      "files_changed_count": 1,
+      "input_tokens": 600,
+      "lines_added": 0,
+      "lines_deleted": 0,
+      "model_round_trip_count": 3,
+      "model_visible_tool_call_count": 6,
+      "output_tokens": 300,
+      "retry_count": 0,
+      "task_id": "test_003_token_null",
+      "task_success": "success",
+      "task_wall_clock_duration_ms": 331,
+      "tool_calls_by_tool": {
+        "filesystem": 4,
+        "shell": 2
+      },
+      "tool_execution_duration_ms_total": 20,
+      "total_known_tokens": 900,
+      "unique_tool_count": 2,
+      "variant": "baseline",
+      "verification_count": 1,
+      "verification_fail_count": 0,
+      "verification_pass_count": 1
+    }
+  ],
+  "partial": 0,
+  "successful": 17,
+  "tool_calls": {
+    "count": 20,
+    "max": 8,
+    "mean": 5.7,
+    "median": 6.0,
+    "min": 3,
+    "p25": 5.0,
+    "p75": 6.0
+  },
+  "tool_distribution": {
+    "filesystem": 80,
+    "shell": 34
+  },
+  "total_attempted": 20,
+  "valid": 20,
+  "verification_pass": 21,
+  "verification_pass_rate": 0.875,
+  "verification_total": 24,
+  "wall_clock_ms": {
+    "count": 20,
+    "max": 669,
+    "mean": 395.2,
+    "median": 408.0,
+    "min": 242,
+    "p25": 331.0,
+    "p75": 440.0
+  }
+}
