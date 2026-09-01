@@ -1,0 +1,7 @@
+{
+  "schema_version": "validation.v1",
+  "phase": 3,
+  "status": "INSUFFICIENT_REAL_RUNS",
+  "runs": [],
+  "note": "Opportunity analysis is intentionally empty until a completed genuine rollout can be classified post hoc."
+}
