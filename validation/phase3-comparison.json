@@ -1,0 +1,9 @@
+{
+  "schema_version": "validation.v1",
+  "phase": 3,
+  "decision": "INSUFFICIENT_REAL_RUNS",
+  "genuine_completed_pairs": 0,
+  "synthetic_runs_counted": 0,
+  "primary_metrics": null,
+  "reason": "The predefined minimum of six genuine paired Codex tasks has not been met; no product conclusion is permitted."
+}
