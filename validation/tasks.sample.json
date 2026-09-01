@@ -1,0 +1,38 @@
+{
+  "schema_version": "validation.v1",
+  "tasks": [
+    {
+      "task_id": "sample_bug_fix_001",
+      "title": "Fix off-by-one in pagination (sample)",
+      "category": "bug_fix",
+      "description": "SAMPLE for parsing only — not a benchmark result. Repository contains an off-by-one in list pagination; fix so tests pass. Do not fabricate results.",
+      "repo_or_fixture": "execution-tool (local, HEAD)",
+      "base_revision": "HEAD",
+      "verification_commands_or_checks": ["cargo test --lib", "cargo test --test escapes"],
+      "success_criteria": "verification commands exit 0 and pagination returns correct last page",
+      "notes": "Sample entry — replace with real task before baseline corpus."
+    },
+    {
+      "task_id": "sample_feature_002",
+      "title": "Add read-only flag to FS tool (sample)",
+      "category": "feature",
+      "description": "SAMPLE — add a read-only mode flag threading through policy; requires policy validation.",
+      "repo_or_fixture": "execution-tool (local, HEAD)",
+      "base_revision": "HEAD",
+      "verification_commands_or_checks": ["cargo test --lib fs"],
+      "success_criteria": "Policy rejects writes when flag set; existing fs tests green",
+      "notes": "Sample entry"
+    },
+    {
+      "task_id": "sample_investigation_003",
+      "title": "Investigate SSRF edge case (sample)",
+      "category": "investigation",
+      "description": "SAMPLE — investigate whether numeric IP bypass 0xC0... is blocked before DNS; report findings.",
+      "repo_or_fixture": "execution-tool (local, HEAD)",
+      "base_revision": "HEAD",
+      "verification_commands_or_checks": [],
+      "success_criteria": "Written report states blocked/malformed; no code change required",
+      "notes": "Sample entry — investigation has no verification commands"
+    }
+  ]
+}
