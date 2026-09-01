@@ -1,0 +1,934 @@
+{
+  "adoption": {
+    "adoption_rate": 1.0,
+    "tasks_with_sequence": 20
+  },
+  "experiment": {
+    "baseline": "validation/experiments/exp_baseline_001",
+    "treatment": "validation/experiments/exp_treatment_001"
+  },
+  "real_subset": {
+    "count": 8,
+    "median_handoff_reduction_pct": 33.33333333333333,
+    "median_round_trip_reduction_pct": 33.33333333333333,
+    "paired": [
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 463
+        },
+        "category": "Investigation",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -173.86609071274296
+        },
+        "success_match": true,
+        "task_id": "inv_001_ssrf_destination",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 1268
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 408
+        },
+        "category": "BugFix",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -91.91176470588235
+        },
+        "success_match": true,
+        "task_id": "bug_001_read_limit_clamp",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 783
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 8,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 362
+        },
+        "category": "BugFix",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 25.0,
+          "round_trip_pct": 25.0,
+          "wall_pct": -100.55248618784532
+        },
+        "success_match": true,
+        "task_id": "bug_004_collector_status_parse",
+        "treatment": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.3333333333333333,
+          "round_trips": 3,
+          "sequences": 2,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 726
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 305
+        },
+        "category": "Feature",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 40.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -9.508196721311474
+        },
+        "success_match": true,
+        "task_id": "feat_001_stat_summary",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.6666666666666667,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 334
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 7,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "failure",
+          "tool_calls": 7,
+          "underlying": 7,
+          "verification": 0,
+          "wall_ms": 419
+        },
+        "category": "Feature",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 28.57142857142857,
+          "round_trip_pct": 25.0,
+          "wall_pct": -15.274463007159905
+        },
+        "success_match": true,
+        "task_id": "feat_004_verification_retry_metric",
+        "treatment": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.4,
+          "round_trips": 3,
+          "sequences": 1,
+          "success": "failure",
+          "tool_calls": 7,
+          "underlying": 7,
+          "verification": 0,
+          "wall_ms": 483
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 8,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "success",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 2,
+          "wall_ms": 435
+        },
+        "category": "Refactor",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 37.5,
+          "round_trip_pct": 25.0,
+          "wall_pct": -60.689655172413794
+        },
+        "success_match": true,
+        "task_id": "ref_002_error_codes",
+        "treatment": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.6,
+          "round_trips": 3,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 2,
+          "wall_ms": 699
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 363
+        },
+        "category": "TestFailure",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": 23.96694214876033
+        },
+        "success_match": true,
+        "task_id": "test_001_escapes_symlink",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 276
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.0,
+          "round_trips": 2,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 2,
+          "wall_ms": 265
+        },
+        "category": "Configuration",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 66.66666666666666,
+          "round_trip_pct": 50.0,
+          "wall_pct": 16.60377358490566
+        },
+        "success_match": true,
+        "task_id": "cfg_001_audit_dep",
+        "treatment": {
+          "handoffs": 1,
+          "ops_per_handoff": 3.0,
+          "round_trips": 1,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 2,
+          "wall_ms": 221
+        }
+      }
+    ],
+    "success_match": 8,
+    "task_ids": [
+      "inv_001_ssrf_destination",
+      "bug_001_read_limit_clamp",
+      "feat_001_stat_summary",
+      "ref_002_error_codes",
+      "test_001_escapes_symlink",
+      "cfg_001_audit_dep",
+      "bug_004_collector_status_parse",
+      "feat_004_verification_retry_metric"
+    ]
+  },
+  "simulated": {
+    "mean_handoff_reduction_pct": 37.63690476190476,
+    "mean_round_trip_reduction_pct": 29.99999999999999,
+    "median_handoff_reduction_pct": 33.33333333333333,
+    "median_round_trip_reduction_pct": 33.33333333333333,
+    "median_wall_change_pct": -25.732744888589046,
+    "paired": [
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 463
+        },
+        "category": "Investigation",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -173.86609071274296
+        },
+        "success_match": true,
+        "task_id": "inv_001_ssrf_destination",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 1268
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 409
+        },
+        "category": "Investigation",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -200.97799511002444
+        },
+        "success_match": true,
+        "task_id": "inv_002_sandbox_toctou",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 1231
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.0,
+          "round_trips": 2,
+          "success": "success",
+          "tool_calls": 4,
+          "underlying": 4,
+          "verification": 2,
+          "wall_ms": 669
+        },
+        "category": "Investigation",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 25.0,
+          "round_trip_pct": 0.0,
+          "wall_pct": 11.659192825112108
+        },
+        "success_match": true,
+        "task_id": "inv_003_audit_logging",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.3333333333333333,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 4,
+          "underlying": 4,
+          "verification": 2,
+          "wall_ms": 591
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.0,
+          "round_trips": 2,
+          "success": "success",
+          "tool_calls": 4,
+          "underlying": 4,
+          "verification": 1,
+          "wall_ms": 342
+        },
+        "category": "Investigation",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 25.0,
+          "round_trip_pct": 0.0,
+          "wall_pct": -102.92397660818713
+        },
+        "success_match": true,
+        "task_id": "inv_004_registry_batch_sequence",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.3333333333333333,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 4,
+          "underlying": 4,
+          "verification": 1,
+          "wall_ms": 694
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 408
+        },
+        "category": "BugFix",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -91.91176470588235
+        },
+        "success_match": true,
+        "task_id": "bug_001_read_limit_clamp",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 783
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 2,
+          "wall_ms": 408
+        },
+        "category": "BugFix",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -75.0
+        },
+        "success_match": true,
+        "task_id": "bug_002_header_allowlist",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 2,
+          "wall_ms": 714
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 441
+        },
+        "category": "BugFix",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -18.820861678004537
+        },
+        "success_match": true,
+        "task_id": "bug_003_base64_write",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 524
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 8,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 362
+        },
+        "category": "BugFix",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 25.0,
+          "round_trip_pct": 25.0,
+          "wall_pct": -100.55248618784532
+        },
+        "success_match": true,
+        "task_id": "bug_004_collector_status_parse",
+        "treatment": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.3333333333333333,
+          "round_trips": 3,
+          "sequences": 2,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 726
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 305
+        },
+        "category": "Feature",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 40.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -9.508196721311474
+        },
+        "success_match": true,
+        "task_id": "feat_001_stat_summary",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.6666666666666667,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 334
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 440
+        },
+        "category": "Feature",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 40.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": 17.5
+        },
+        "success_match": true,
+        "task_id": "feat_002_env_redaction_doc",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.6666666666666667,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 363
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 302
+        },
+        "category": "Feature",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 40.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -84.76821192052981
+        },
+        "success_match": true,
+        "task_id": "feat_003_manifest_complexity",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.6666666666666667,
+          "round_trips": 2,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 5,
+          "underlying": 5,
+          "verification": 1,
+          "wall_ms": 558
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 7,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "failure",
+          "tool_calls": 7,
+          "underlying": 7,
+          "verification": 0,
+          "wall_ms": 419
+        },
+        "category": "Feature",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 28.57142857142857,
+          "round_trip_pct": 25.0,
+          "wall_pct": -15.274463007159905
+        },
+        "success_match": true,
+        "task_id": "feat_004_verification_retry_metric",
+        "treatment": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.4,
+          "round_trips": 3,
+          "sequences": 1,
+          "success": "failure",
+          "tool_calls": 7,
+          "underlying": 7,
+          "verification": 0,
+          "wall_ms": 483
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 506
+        },
+        "category": "Refactor",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 50.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": -128.65612648221344
+        },
+        "success_match": true,
+        "task_id": "ref_001_collector_helper",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 2.0,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 1157
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 8,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "success",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 2,
+          "wall_ms": 435
+        },
+        "category": "Refactor",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 37.5,
+          "round_trip_pct": 25.0,
+          "wall_pct": -60.689655172413794
+        },
+        "success_match": true,
+        "task_id": "ref_002_error_codes",
+        "treatment": {
+          "handoffs": 5,
+          "ops_per_handoff": 1.6,
+          "round_trips": 3,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 2,
+          "wall_ms": 699
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 502
+        },
+        "category": "Refactor",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 50.0,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": 24.701195219123505
+        },
+        "success_match": true,
+        "task_id": "ref_003_analyzer_tokens",
+        "treatment": {
+          "handoffs": 3,
+          "ops_per_handoff": 2.0,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 378
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 363
+        },
+        "category": "TestFailure",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": 23.96694214876033
+        },
+        "success_match": true,
+        "task_id": "test_001_escapes_symlink",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 276
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 8,
+          "ops_per_handoff": 1.0,
+          "round_trips": 4,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 292
+        },
+        "category": "TestFailure",
+        "complexity": "complex",
+        "reductions": {
+          "handoff_pct": 25.0,
+          "round_trip_pct": 25.0,
+          "wall_pct": 25.684931506849317
+        },
+        "success_match": true,
+        "task_id": "test_002_stress_leak",
+        "treatment": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.3333333333333333,
+          "round_trips": 3,
+          "sequences": 2,
+          "success": "failure",
+          "tool_calls": 8,
+          "underlying": 8,
+          "verification": 0,
+          "wall_ms": 217
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 6,
+          "ops_per_handoff": 1.0,
+          "round_trips": 3,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 331
+        },
+        "category": "TestFailure",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 33.33333333333333,
+          "round_trip_pct": 33.33333333333333,
+          "wall_pct": 38.670694864048336
+        },
+        "success_match": true,
+        "task_id": "test_003_token_null",
+        "treatment": {
+          "handoffs": 4,
+          "ops_per_handoff": 1.5,
+          "round_trips": 2,
+          "sequences": 2,
+          "success": "success",
+          "tool_calls": 6,
+          "underlying": 6,
+          "verification": 1,
+          "wall_ms": 203
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.0,
+          "round_trips": 2,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 2,
+          "wall_ms": 265
+        },
+        "category": "Configuration",
+        "complexity": "simple",
+        "reductions": {
+          "handoff_pct": 66.66666666666666,
+          "round_trip_pct": 50.0,
+          "wall_pct": 16.60377358490566
+        },
+        "success_match": true,
+        "task_id": "cfg_001_audit_dep",
+        "treatment": {
+          "handoffs": 1,
+          "ops_per_handoff": 3.0,
+          "round_trips": 1,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 2,
+          "wall_ms": 221
+        }
+      },
+      {
+        "baseline": {
+          "handoffs": 3,
+          "ops_per_handoff": 1.0,
+          "round_trips": 2,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 1,
+          "wall_ms": 242
+        },
+        "category": "Configuration",
+        "complexity": "medium",
+        "reductions": {
+          "handoff_pct": 66.66666666666666,
+          "round_trip_pct": 50.0,
+          "wall_pct": -32.64462809917356
+        },
+        "success_match": true,
+        "task_id": "cfg_002_gitignore_worktree",
+        "treatment": {
+          "handoffs": 1,
+          "ops_per_handoff": 3.0,
+          "round_trips": 1,
+          "sequences": 1,
+          "success": "success",
+          "tool_calls": 3,
+          "underlying": 3,
+          "verification": 1,
+          "wall_ms": 321
+        }
+      }
+    ]
+  },
+  "total_paired": 20
+}
