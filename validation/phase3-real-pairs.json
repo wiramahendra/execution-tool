@@ -1,0 +1,219 @@
+{
+  "schema_version": "validation.v1",
+  "phase": 3,
+  "status": "IN_PROGRESS_OPENCODE",
+  "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d",
+  "selected_task_ids": [
+    "bug_001_read_limit_clamp",
+    "bug_004_collector_status_parse",
+    "feat_001_stat_summary",
+    "feat_003_manifest_complexity",
+    "ref_001_collector_helper",
+    "ref_002_error_codes",
+    "test_001_escapes_symlink",
+    "cfg_001_audit_dep"
+  ],
+  "pair_order_seed": "phase3-20260901-alternating",
+  "pairs": [],
+  "genuine_completed_pairs": 0,
+  "simulated_or_synthetic_completed_pairs": 0,
+  "not_counted": [
+    "Existing Phase 2 synthesized traces are deliberately excluded.",
+    "The started treatment rollout has no completed paired baseline and is not counted."
+  ],
+  "execution_order": [
+    {
+      "step": 1,
+      "task_id": "bug_001_read_limit_clamp",
+      "variant": "baseline",
+      "pair_index": 1
+    },
+    {
+      "step": 2,
+      "task_id": "bug_001_read_limit_clamp",
+      "variant": "treatment",
+      "pair_index": 1
+    },
+    {
+      "step": 3,
+      "task_id": "bug_004_collector_status_parse",
+      "variant": "baseline",
+      "pair_index": 2
+    },
+    {
+      "step": 4,
+      "task_id": "bug_004_collector_status_parse",
+      "variant": "treatment",
+      "pair_index": 2
+    },
+    {
+      "step": 5,
+      "task_id": "feat_001_stat_summary",
+      "variant": "baseline",
+      "pair_index": 3
+    },
+    {
+      "step": 6,
+      "task_id": "feat_001_stat_summary",
+      "variant": "treatment",
+      "pair_index": 3
+    },
+    {
+      "step": 7,
+      "task_id": "feat_003_manifest_complexity",
+      "variant": "baseline",
+      "pair_index": 4
+    },
+    {
+      "step": 8,
+      "task_id": "feat_003_manifest_complexity",
+      "variant": "treatment",
+      "pair_index": 4
+    },
+    {
+      "step": 9,
+      "task_id": "ref_001_collector_helper",
+      "variant": "baseline",
+      "pair_index": 5
+    },
+    {
+      "step": 10,
+      "task_id": "ref_001_collector_helper",
+      "variant": "treatment",
+      "pair_index": 5
+    },
+    {
+      "step": 11,
+      "task_id": "ref_002_error_codes",
+      "variant": "baseline",
+      "pair_index": 6
+    },
+    {
+      "step": 12,
+      "task_id": "ref_002_error_codes",
+      "variant": "treatment",
+      "pair_index": 6
+    },
+    {
+      "step": 13,
+      "task_id": "test_001_escapes_symlink",
+      "variant": "baseline",
+      "pair_index": 7
+    },
+    {
+      "step": 14,
+      "task_id": "test_001_escapes_symlink",
+      "variant": "treatment",
+      "pair_index": 7
+    },
+    {
+      "step": 15,
+      "task_id": "cfg_001_audit_dep",
+      "variant": "baseline",
+      "pair_index": 8
+    },
+    {
+      "step": 16,
+      "task_id": "cfg_001_audit_dep",
+      "variant": "treatment",
+      "pair_index": 8
+    }
+  ],
+  "pair_order": [
+    {
+      "pair_index": 1,
+      "task_id": "bug_001_read_limit_clamp",
+      "baseline_step": 1,
+      "treatment_step": 2
+    },
+    {
+      "pair_index": 2,
+      "task_id": "bug_004_collector_status_parse",
+      "baseline_step": 3,
+      "treatment_step": 4
+    },
+    {
+      "pair_index": 3,
+      "task_id": "feat_001_stat_summary",
+      "baseline_step": 5,
+      "treatment_step": 6
+    },
+    {
+      "pair_index": 4,
+      "task_id": "feat_003_manifest_complexity",
+      "baseline_step": 7,
+      "treatment_step": 8
+    },
+    {
+      "pair_index": 5,
+      "task_id": "ref_001_collector_helper",
+      "baseline_step": 9,
+      "treatment_step": 10
+    },
+    {
+      "pair_index": 6,
+      "task_id": "ref_002_error_codes",
+      "baseline_step": 11,
+      "treatment_step": 12
+    },
+    {
+      "pair_index": 7,
+      "task_id": "test_001_escapes_symlink",
+      "baseline_step": 13,
+      "treatment_step": 14
+    },
+    {
+      "pair_index": 8,
+      "task_id": "cfg_001_audit_dep",
+      "baseline_step": 15,
+      "treatment_step": 16
+    }
+  ],
+  "locked_task_inventory": [
+    {
+      "task_id": "bug_001_read_limit_clamp",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "bug_004_collector_status_parse",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "feat_001_stat_summary",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "feat_003_manifest_complexity",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "ref_001_collector_helper",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "ref_002_error_codes",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "test_001_escapes_symlink",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    },
+    {
+      "task_id": "cfg_001_audit_dep",
+      "base_revision": "23591ccbabd2f3bea7be07a297fc85f2bafdd72d"
+    }
+  ],
+  "experiment_configuration": {
+    "verify_change_config": "verify_change.yaml",
+    "verify_change_version": 1,
+    "checks": [
+      "targeted_test",
+      "typecheck",
+      "lint",
+      "build_check",
+      "git_diff"
+    ],
+    "max_checks": 4,
+    "treatment_tool_description": "Verify the current code change using repository-defined checks and return structured results. Use when you have finished making a change and do not need additional reasoning between verification checks."
+  }
+}
