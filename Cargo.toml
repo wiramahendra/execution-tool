@@ -22,6 +22,8 @@ backend-container = ["dep:watchdog"]
 container = ["backend-container"]
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
 tokio = { version = "1.40", features = ["rt", "rt-multi-thread", "process", "fs", "io-util", "sync", "time", "macros", "net"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "charset", "http2", "stream"] }
 futures-util = "0.3"
@@ -47,6 +49,7 @@ serde_yaml = "0.9"
 notify = "6.1"
 rustix = { version = "0.38", features = ["fs", "process"] }
 glob = "0.3"
+tempfile = "3"
 
 [dev-dependencies]
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "test-util"] }
@@ -56,3 +59,7 @@ wat = "1.0"
 [[bin]]
 name = "fuzz_destination"
 path = "fuzz/fuzz_destination.rs"
+
+[[bin]]
+name = "validation-analyzer"
+path = "src/bin/validation_analyzer.rs"
