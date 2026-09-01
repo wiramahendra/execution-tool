@@ -1,0 +1,17 @@
+version: 1
+checks:
+  targeted_test:
+    program: "cargo"
+    args: ["test", "--lib"]
+  typecheck:
+    program: "cargo"
+    args: ["check", "--all-targets"]
+  lint:
+    program: "cargo"
+    args: ["clippy", "--all-targets", "--", "-D", "warnings"]
+  build_check:
+    program: "cargo"
+    args: ["build"]
+  git_diff:
+    program: "git"
+    args: ["diff", "--stat"]
