@@ -47,6 +47,7 @@ pub mod code;
 pub mod destination;
 pub mod egress;
 pub mod error;
+pub mod experiment;
 pub mod fs;
 pub mod http;
 pub mod limits;
