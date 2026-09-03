@@ -198,7 +198,7 @@ impl ToolRegistry {
     /// Execute a batch of tool calls concurrently, preserving order.
     ///
     /// Each entry is `(name, args)`. Concurrency is bounded by `max_concurrency`
-    /// (cap of 32 mirrors `executiond` pool). Useful for agent batch steps like
+    /// (cap of 32 mirrors `marshalld` pool). Useful for agent batch steps like
     /// `read N files` without serial RTT.
     pub async fn execute_batch(
         &self,
