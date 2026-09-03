@@ -8,9 +8,9 @@
 
 use std::path::PathBuf;
 
-use execution_tool::{
+use marshall::{
     destination::DestinationError, validate_destination, ArgumentPolicy, FileSystemTool, Sandbox,
-    ShellTool, Tool,
+    ShellTool, SystemTool, Tool,
 };
 use serde_json::json;
 
@@ -146,9 +146,9 @@ async fn option_injection_into_an_allowlisted_binary() {
         .find(|p| std::path::Path::new(p).exists());
     let Some(echo) = echo else { return };
 
-    let tool =
-        ShellTool::new(vec![execution_tool::shell::AllowedCommand::new(echo)
-            .with_arguments(ArgumentPolicy::NoFlags)]);
+    let tool = ShellTool::new(vec![
+        marshall::shell::AllowedCommand::new(echo).with_arguments(ArgumentPolicy::NoFlags)
+    ]);
 
     for hostile in [
         json!({"program": echo, "args": ["--exec-path=/tmp/evil"]}),
@@ -168,9 +168,7 @@ async fn option_injection_into_an_allowlisted_binary() {
 /// chooses which binary actually runs.
 #[tokio::test]
 async fn path_lookup_instead_of_an_absolute_program() {
-    let tool = ShellTool::new(vec![execution_tool::shell::AllowedCommand::new(
-        "/bin/echo",
-    )]);
+    let tool = ShellTool::new(vec![marshall::shell::AllowedCommand::new("/bin/echo")]);
     assert!(tool.validate(&json!({"program": "echo"})).await.is_err());
 }
 
@@ -180,10 +178,8 @@ async fn working_directory_outside_the_sandbox() {
     let w = Workspace::new("wd");
     std::fs::create_dir_all(w.at("sandbox_evil")).unwrap();
 
-    let tool = ShellTool::new(vec![execution_tool::shell::AllowedCommand::new(
-        "/bin/echo",
-    )])
-    .with_working_dirs(Sandbox::new([w.at("sandbox")]).unwrap());
+    let tool = ShellTool::new(vec![marshall::shell::AllowedCommand::new("/bin/echo")])
+        .with_working_dirs(Sandbox::new([w.at("sandbox")]).unwrap());
 
     assert!(tool
         .validate(&json!({
@@ -261,4 +257,60 @@ fn alternate_schemes() {
             "accepted: {url}"
         );
     }
+}
+
+// --- system ------------------------------------------------------------------
+
+/// Env exfiltration through an unconfigured allowlist.
+///
+/// A `system env_get` for `AWS_SECRET_ACCESS_KEY` must fail closed when no
+/// policy enabled it — otherwise any agent prompt injection can lift
+/// credentials into a transcript via the tool result.
+#[tokio::test]
+async fn env_exfiltration_without_an_allowlist() {
+    std::env::set_var("MARSHALL_ESC_SECRET", "topsecret");
+    let tool = SystemTool::new();
+    assert!(tool
+        .validate(&json!({"operation": "env_get", "key": "MARSHALL_ESC_SECRET"}))
+        .await
+        .is_err());
+    // Even the key shape is validated: no `$(...)`, no `;`, no `LD_PRELOAD`.
+    assert!(tool
+        .validate(&json!({"operation": "env_get", "key": "$(env)"}))
+        .await
+        .is_err());
+    assert!(tool
+        .validate(&json!({"operation": "env_get", "key": "LD_PRELOAD"}))
+        .await
+        .is_err());
+    std::env::remove_var("MARSHALL_ESC_SECRET");
+}
+
+/// Process kill without an explicit opt-in, and self-kill with one.
+///
+/// `process_kill` defaults to denied; and even when enabled it must refuse
+/// pid 1 and the daemon's own pid — an agent that can kill either can take
+/// down the host init or its own executor to escape supervision.
+#[tokio::test]
+async fn process_kill_defaults_to_denied_and_refuses_self() {
+    let denied = SystemTool::new();
+    assert!(denied
+        .validate(&json!({"operation": "process_kill", "pid": 1234}))
+        .await
+        .is_err());
+    assert!(denied
+        .validate(&json!({"operation": "process_list"}))
+        .await
+        .is_err());
+
+    let allowed = SystemTool::new().with_kill(true);
+    assert!(allowed
+        .validate(&json!({"operation": "process_kill", "pid": 1}))
+        .await
+        .is_err());
+    let self_pid = std::process::id() as u64;
+    assert!(allowed
+        .validate(&json!({"operation": "process_kill", "pid": self_pid}))
+        .await
+        .is_err());
 }
