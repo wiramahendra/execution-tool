@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 //! Minimal stdio MCP adapter exposing exactly one post-edit verification tool.
 
-use execution_tool::experiment::verify_change::VerifyChangeTool;
-use execution_tool::Tool;
+use marshall::experiment::verify_change::VerifyChangeTool;
+use marshall::Tool;
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
