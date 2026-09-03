@@ -1,17 +1,17 @@
 [package]
-name = "execution-tool"
-version = "0.1.0"
+name = "marshall"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
-description = "Sandboxed tool execution for agents: filesystem, shell, and HTTP behind deny-by-default policies with SSRF protection."
-repository = "https://github.com/wiramahendra/execution-tool"
+description = "Marshall — sandboxed tool execution for agents: filesystem, shell, HTTP, code, and system behind deny-by-default policies with SSRF protection."
+repository = "https://github.com/wiramahendra/marshall"
 readme = "README.md"
 keywords = ["agent", "sandbox", "ssrf", "tools", "security"]
 categories = ["development-tools", "web-programming"]
 
 [lib]
-name = "execution_tool"
+name = "marshall"
 path = "src/lib.rs"
 
 [features]
