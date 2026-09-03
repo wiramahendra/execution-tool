@@ -95,7 +95,7 @@ impl Tool for FileSystemTool {
             "type": "object",
             "properties": {
                 "operation": { "type": "string", "enum": operations, "description": "Filesystem operation. read: get file content (capped 8MiB). write: create/overwrite. patch: single replace. search: substring grep (1000 cap). glob: pattern match. Examples: read /tmp/work/a.txt, search /tmp/work for 'todo' recursive true" },
-                "path": { "type": "string", "description": "Absolute path inside sandbox (or base dir for glob/search). Example: /tmp/executiond/<session>/file.txt" },
+                "path": { "type": "string", "description": "Absolute path inside sandbox (or base dir for glob/search). Example: /tmp/marshalld/<session>/file.txt" },
                 "content": { "type": "string", "description": "UTF-8 bytes to write (write/append only). Example: write with content 'hello world'" },
                 "content_base64": { "type": "string", "description": "Base64 bytes for binary writes (alternative to content). Example: write PNG via content_base64" },
                 "destination": { "type": "string", "description": "Destination path for copy/move. Must be inside sandbox." },
@@ -106,9 +106,9 @@ impl Tool for FileSystemTool {
             },
             "required": ["operation", "path"],
             "examples": [
-                {"operation":"read","path":"/tmp/executiond/abc/file.txt"},
-                {"operation":"search","path":"/tmp/executiond/abc","pattern":"todo","recursive":true},
-                {"operation":"patch","path":"/tmp/executiond/abc/main.py","search":"old","replace":"new"}
+                {"operation":"read","path":"/tmp/marshalld/abc/file.txt"},
+                {"operation":"search","path":"/tmp/marshalld/abc","pattern":"todo","recursive":true},
+                {"operation":"patch","path":"/tmp/marshalld/abc/main.py","search":"old","replace":"new"}
             ]
         })
     }
