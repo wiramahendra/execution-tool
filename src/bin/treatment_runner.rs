@@ -2,13 +2,13 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use execution_tool::experiment::collector::collect_repo_state;
-use execution_tool::experiment::instrumentation::instrument_execute;
-use execution_tool::experiment::manifest::TaskManifest;
-use execution_tool::experiment::recorder::ExperimentRecorder;
-use execution_tool::experiment::schema::{TaskOutcome, TokenUsage};
-use execution_tool::experiment::treatment::execute_bounded_sequence;
-use execution_tool::{
+use marshall::experiment::collector::collect_repo_state;
+use marshall::experiment::instrumentation::instrument_execute;
+use marshall::experiment::manifest::TaskManifest;
+use marshall::experiment::recorder::ExperimentRecorder;
+use marshall::experiment::schema::{TaskOutcome, TokenUsage};
+use marshall::experiment::treatment::execute_bounded_sequence;
+use marshall::{
     shell::AllowedCommand, ArgumentPolicy, FileSystemTool, Sandbox, ShellTool, ToolRegistry,
 };
 use serde_json::{json, Value};
@@ -43,7 +43,7 @@ fn create_registry(worktree: &Path) -> anyhow::Result<ToolRegistry> {
 }
 
 fn steps_for_task(
-    task: &execution_tool::experiment::manifest::TaskSpec,
+    task: &marshall::experiment::manifest::TaskSpec,
     worktree: &Path,
 ) -> Vec<(String, Value)> {
     // Same as baseline_runner but without turn_id, just Vec of tool/args in order
