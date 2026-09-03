@@ -8,7 +8,7 @@
 //! the request never leaves the host.
 //!
 //! In production this would be a sidecar SQUID/envoy; here it's a library
-//! wrapper that `executiond` calls before any outbound `reqwest`.
+//! wrapper that `marshalld` calls before any outbound `reqwest`.
 
 use std::collections::HashSet;
 
