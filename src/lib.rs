@@ -5,7 +5,7 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use execution_tool::{FileSystemTool, Sandbox, ToolRegistry};
+//! use marshall::{FileSystemTool, Sandbox, ToolRegistry};
 //!
 //! # fn main() -> anyhow::Result<()> {
 //! let sandbox = Sandbox::new(["/srv/agent/workspace"])?;
@@ -56,6 +56,7 @@ pub mod redaction;
 pub mod registry;
 pub mod sandbox;
 pub mod shell;
+pub mod system;
 
 use std::collections::HashMap;
 
@@ -81,6 +82,7 @@ pub use redaction::REDACTION_POLICY_VERSION;
 pub use registry::{ToolDefinition, ToolRegistry};
 pub use sandbox::{Sandbox, SandboxError};
 pub use shell::{ArgumentPolicy, ShellTool};
+pub use system::{SystemPolicy, SystemTool};
 
 /// SHA-256 of `bytes` as lowercase hex.
 ///
