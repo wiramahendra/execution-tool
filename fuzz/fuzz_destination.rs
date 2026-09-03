@@ -1,4 +1,4 @@
-use execution_tool::{destination::host_of, validate_destination};
+use marshall::{destination::host_of, validate_destination};
 
 fn main() {
     // libFuzzer entry: cargo fuzz run fuzz_destination
