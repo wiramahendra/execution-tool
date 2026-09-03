@@ -1,7 +1,7 @@
 {
-  "name": "execution-tool-sdk",
+  "name": "marshall-sdk",
   "version": "0.1.0",
-  "description": "JS SDK for executiond — filesystem/shell/http with SSRF + sandbox policy",
+  "description": "JS SDK for marshalld — filesystem/shell/http with SSRF + sandbox policy",
   "type": "module",
   "main": "index.js",
   "keywords": ["agent", "sandbox", "executor"],
