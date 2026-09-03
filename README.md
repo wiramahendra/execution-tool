@@ -1,10 +1,10 @@
-# execution-tool
+# Marshall
 
-Sandboxed tool execution for agents — filesystem, shell, HTTP, code, and agentic planning, each behind a policy that denies by default.
+Marshall is sandboxed tool execution for agents — filesystem, shell, HTTP, code, system, and agentic planning, each behind a policy that denies by default.
 
 ```rust
 use std::sync::Arc;
-use execution_tool::{CodeTool, FileSystemTool, HttpTool, MemoryTool, ThinkTool, TodoTool, Sandbox, ToolRegistry};
+use marshall::{CodeTool, FileSystemTool, HttpTool, MemoryTool, ThinkTool, TodoTool, Sandbox, ToolRegistry};
 
 let sandbox = Sandbox::new(["/srv/agent/workspace"])?;
 
@@ -17,7 +17,7 @@ tools.register(Arc::new(MemoryTool::new()));                      // session-awa
 tools.register(Arc::new(TodoTool::new()));                        // session-aware todo
 ```
 
-Every allowlist starts empty, so an unconfigured tool does nothing at all. `executiond` exposes 9 tools via `GET /v1/tools`.
+Every allowlist starts empty, so an unconfigured tool does nothing at all. `marshalld` exposes 10 tools via `GET /v1/tools`.
 
 ## What "sandboxed" means here
 
@@ -43,7 +43,7 @@ Naive URL validation does not stop it. Each of these defeats a check that looks 
 | `https://ok.com/` → 302 → metadata | the redirect is a request nobody validated |
 | DNS answers public to the checker, private to the client | validation and connection resolve separately |
 
-The last two cannot be handled by URL inspection at all, so `HttpTool` refuses redirects outright and pins the connection to the addresses that were actually validated (`resolve_to_addrs`) rather than re-resolving the name. `EgressPolicy` enforces the same server-side in `executiond` (`403` even if client bypasses).
+The last two cannot be handled by URL inspection at all, so `HttpTool` refuses redirects outright and pins the connection to the addresses that were actually validated (`resolve_to_addrs`) rather than re-resolving the name. `EgressPolicy` enforces the same server-side in `marshalld` (`403` even if client bypasses).
 
 Ports are an allowlist (`443`, `8443` for public `https`; `80,3000,8000,8080,5000` etc for loopback `http`), not a blocklist, because an agent that can pick arbitrary ports can map its own network through timing differences even when every address check holds. `is_blocked_v6` also covers `NAT64 64:ff9b::/96`, `ORCHID`, `fec0::/10`, `100::/64`, `192.0.0.170/32`, etc (`src/destination.rs:322`).
 
@@ -64,7 +64,7 @@ allow /usr/bin/tar   →  tar --to-command=/tmp/evil -xf …
 Each is an allowlisted binary reaching arbitrary execution through its own documented options. `ArgumentPolicy` is the control that matters:
 
 ```rust
-use execution_tool::{ArgumentPolicy, ShellTool, shell::AllowedCommand};
+use marshall::{ArgumentPolicy, ShellTool, shell::AllowedCommand};
 
 ShellTool::new(vec![
     // Safe by construction.
@@ -90,7 +90,7 @@ So `ToolOutcome` splits them. `summary` is structured, bounded, and safe to log:
 
 ```json
 {"operation":"read","bytes":20,"sha256":"6e459f…","truncated":false,
- "content_redacted":true,"redaction_policy_version":"execution-tool-redaction-v1"}
+ "content_redacted":true,"redaction_policy_version":"marshall-redaction-v1"}
 ```
 
 The bytes live in `content`, which is `None` unless the tool produced a payload and is omitted entirely from the serialized form. Logging an outcome is therefore the safe thing as well as the easy thing. HTTP response headers pass through an allowlist, so `set-cookie` and `authorization` never reach a log. `think`/`reflect` content is also hashed.
@@ -114,17 +114,18 @@ Dropped from the extraction: a database tool that forwarded inserts to a specifi
 
 - **TOCTOU.** On Linux the check is now via `openat2` `RESOLVE_BENEATH` (`src/sandbox.rs:191`, `rustix 0.38`), closing the symlink-swap race for `resolve_existing` and `resolve_for_create` (parent `..` case still falls back to `canonicalize` for `parent == "."`). On other platforms the classic check-then-use race remains. `openat2` fd is dropped after `read_link /proc/self/fd` — true fd-secure I/O not yet retained.
 - **`ArgumentPolicy::NoFlags` is a heuristic**, not a guarantee. A binary that treats a bare positional as a script name is still fully exploitable.
-- **No isolation by default.** Repeating it because it matters: this is policy, not a sandbox in the kernel sense. Use `backend::WasmBackend` (wasmtime fuel/memory, WASI preopen `/sandbox`, epoch timeout — currently stubbed to fake `hello wasm` for compilation, `cargo test --features wasm` uses heuristic) or `backend::ContainerBackend` (watchdog/Firecracker per-child `Limits{128MiB,pids 64,cpu_time}` + `seccomp` — `cargo check --features container` fetches `watchdog` git, `is_kvm_available()` checks `/dev/kvm` on Linux else fallback `LocalProcessBackend` with `tracing::warn` on `darwin` `src/backend.rs:412`, `cargo test --lib backend::tests::container_backend_falls_back_on_macos` verifies) for real isolation, or run `executiond` behind them. `Limits::apply_rlimits` is server-wide, not per-child — per-child only via `watchdog`.
-- **The HTTP tool trusts your allowlist.** If you allowlist a host that redirects or proxies, you have allowlisted wherever it points. Server-side `EgressPolicy` (`src/egress.rs:1`) now enforces `403` in `executiond` even if client bypasses, and `batch`/`sequence` also enforce `dest::validate_destination` + `EgressPolicy::check` before fan-out.
-- **Agentic state is in-memory.** `MemoryTool`/`TodoTool`/`PlanTool` are `RwLock<HashMap<scope, ...>>` with `scope = session_id|global` auto-injected from top-level `session_id` in `batch`/`sequence` (`src/bin/executiond.rs:370` `inject_session_id`). No persistence across restarts, LRU eviction on cap.
+- **No isolation by default.** Repeating it because it matters: this is policy, not a sandbox in the kernel sense. Use `backend::WasmBackend` (wasmtime fuel/memory, WASI preopen `/sandbox`, epoch timeout — currently stubbed to fake `hello wasm` for compilation, `cargo test --features wasm` uses heuristic) or `backend::ContainerBackend` (watchdog/Firecracker per-child `Limits{128MiB,pids 64,cpu_time}` + `seccomp` — `cargo check --features container` fetches `watchdog` git, `is_kvm_available()` checks `/dev/kvm` on Linux else fallback `LocalProcessBackend` with `tracing::warn` on `darwin` `src/backend.rs:412`, `cargo test --lib backend::tests::container_backend_falls_back_on_macos` verifies) for real isolation, or run `marshalld` behind them. `Limits::apply_rlimits` is server-wide, not per-child — per-child only via `watchdog`.
+- **The HTTP tool trusts your allowlist.** If you allowlist a host that redirects or proxies, you have allowlisted wherever it points. Server-side `EgressPolicy` (`src/egress.rs:1`) now enforces `403` in `marshalld` even if client bypasses, and `batch`/`sequence` also enforce `dest::validate_destination` + `EgressPolicy::check` before fan-out.
+- **Agentic state is in-memory.** `MemoryTool`/`TodoTool`/`PlanTool` are `RwLock<HashMap<scope, ...>>` with `scope = session_id|global` auto-injected from top-level `session_id` in `batch`/`sequence` (`src/bin/marshalld.rs:370` `inject_session_id`). No persistence across restarts, LRU eviction on cap.
 
-## Current product state — 9 tools, 3 layers
+## Current product state — 10 tools, 3 layers
 
-**Execution (4):**
+**Execution (5):**
 *   **Filesystem** `src/fs.rs:73` `read/write/list/mkdir/delete/stat/copy/move/append/search/glob/patch` (12 ops, `search` substring `recursive` capped 1000 + 512-char line, `glob` `**/*.py` canonical-inside `starts_with`, `patch` single `replacen` non-empty `search`, `read` streaming `read_file_capped` `read_limit` clamp `1..64MiB`, `with_read_limit`).
 *   **Shell** `src/shell.rs:115` `stdin`/`stdin_base64` piped (capped 1MiB, raw base64 pre-checked `len > 4/3*limit+1024`), `cpu_time`/`memory_bytes` → `ResourceLimits` (wasmtime fuel `cpu_time*10k` / cgroup), `execute_streaming` SSE, `ArgumentPolicy` `None`/`Exact`/`NoFlags`/`Unrestricted`.
 *   **HTTP** `src/http.rs:34` `allowlist before DNS` + `validate_destination` + `redirect none` + `resolve_to_addrs pin` + `https_only` + `streaming body cap` (`bytes_stream` + `Content-Length` pre-check `body_limit`/`request_body_limit` 4MiB) + `Header CRLF` check + `allowlisted_headers` + `body_sha256`.
 *   **Code** `src/code.rs:51` `python`/`javascript`/`bash` via `ExecutionBackend` (deny-by-default `allowed_languages` `src/policy.rs:129` `code: {allowed_languages: [python,bash,javascript], timeout_ms, output_limit}`), `code 1..64KiB`, `stdin 1MiB`, `timeout 1..30000ms` (policy `code_timeout`), sandboxed `working_dir` from `Sandbox`, temp-file execution `write_code_to_file` `code_<uuid>_<lang>.<ext>` in `sandbox.roots[0]` or `temp_dir` then `python3 file`/`node file`/`bash file` with cleanup, `stderr` in summary.
+*   **System** `src/system.rs:1` `now/sleep/env_get/env_list/hash/info/process_list/process_kill` (deny-by-default `SystemPolicy` `system: {allowed_env, allow_process_list, allow_kill, max_sleep_ms}`), `env` values in `content` only (`sha256` in summary), `hash` pure `sha256`, `sleep` bounded `1..max_sleep_ms`, `process_list` Linux `/proc` capped 256 no cmdline, `process_kill` `term/kill` via `rustix` refusing pid 0/1/self.
 
 **Agentic planning (5) — no sandbox, session-aware:**
 *   **Think** `src/agent.rs:26` `thought 1..4096` + `next_action? 1..512` + `confidence 0.0..1.0` + `alternatives[] max3` — private reasoning, `sha256` audit, always `success`.
@@ -135,7 +136,7 @@ Dropped from the extraction: a database tool that forwarded inserts to a specifi
 
 **Registry `src/registry.rs:46`** `ToolRegistry` `execute` `execute_once` dedup `Mutex` TTL 300s cap 1024 + `execute_batch` concurrent `Semaphore 1..32` cap `64` preserve order + `execute_sequence` ordered `32` `continue_on_error` + templating `{{steps[0].stdout}}` single-pass 32 placeholders, safe `replace_range` not re-expanding, `cache_len` for metrics. Container tests gated `#[cfg(all(target_os="linux", feature="container"))]` for CI `ubuntu-latest` vs `darwin` fallback.
 
-**Service `executiond` `src/bin/executiond.rs:1` (`axum 0.7` `tokio`):** `GET /health /metrics /v1/tools /v1/policy` `POST /v1/sessions` `DELETE /v1/sessions/:id` `POST /v1/execute /v1/execute/batch /v1/execute/sequence /v1/execute/stream` `session_id` top-level `Option<String>` validated `sessions.contains_key → 404 session_not_found`, `check_session_path` 403 outside `sess.root`, `EgressPolicy` + `dest::validate_destination` per-request and per-batch/step, `inject_session_id` auto-scopes `memory/todo/plan` to top-level `session_id`, `Semaphore 32` `503 concurrency_limited`, `MAX_BATCH 64` `MAX_STEPS 32`, `Prometheus` histogram `executiond_requests_total` + `per-tool counters` + `executiond_duration_ms_bucket`, `audit JSONL sha256 rotation 10MiB`, `tracing` `TraceLayer`, `Cors` restricted `GET/POST/DELETE` `AllowOrigin::any()`, `execution.yaml` hot-reload `notify` `RwLock<ToolRegistry>` + `egress_hosts` swap debounced 300ms, `--validate-config`.
+**Service `marshalld` `src/bin/marshalld.rs:1` (`axum 0.7` `tokio`):** `GET /health /metrics /v1/tools /v1/policy` `POST /v1/sessions` `DELETE /v1/sessions/:id` `POST /v1/execute /v1/execute/batch /v1/execute/sequence /v1/execute/stream` `session_id` top-level `Option<String>` validated `sessions.contains_key → 404 session_not_found`, `check_session_path` 403 outside `sess.root`, `EgressPolicy` + `dest::validate_destination` per-request and per-batch/step, `inject_session_id` auto-scopes `memory/todo/plan` to top-level `session_id`, `Semaphore 32` `503 concurrency_limited`, `MAX_BATCH 64` `MAX_STEPS 32`, `Prometheus` histogram `marshalld_requests_total` + `per-tool counters` + `marshalld_duration_ms_bucket`, `audit JSONL sha256 rotation 10MiB`, `tracing` `TraceLayer`, `Cors` restricted `GET/POST/DELETE` `AllowOrigin::any()`, `marshall.yaml` hot-reload `notify` `RwLock<ToolRegistry>` + `egress_hosts` swap debounced 300ms, `--validate-config`.
 
 ## Testing
 
@@ -145,10 +146,10 @@ cargo test --test escapes   # attack regressions (sibling-prefix, symlink, trave
 cargo test --test stress    # 10k execute_once bounded (cache 1024) ~8s
 cargo run --bin fuzz_destination -- 10  # destination parse corpus (control/percent/numeric bypass)
 cargo run --example agent_tools         # think→todo→memory→filesystem→code loop
-cargo run --bin executiond -- --config execution.yaml --port 3000
+cargo run --bin marshalld -- --config marshall.yaml --port 3000
 curl http://localhost:3000/health
-curl http://localhost:3000/v1/tools | jq '.[].name' # 9: code filesystem http memory plan reflect shell think todo
-curl http://localhost:3000/metrics | grep executiond_tool
+curl http://localhost:3000/v1/tools | jq '.[].name' # 10: code filesystem http memory plan reflect shell system think todo
+curl http://localhost:3000/metrics | grep marshalld_tool
 curl -X POST http://localhost:3000/v1/execute -d '{"tool":"code","args":{"language":"python","code":"print(42)"}}'
 curl -X POST http://localhost:3000/v1/execute -d '{"tool":"think","args":{"thought":"plan","confidence":0.9}}'
 # session-aware batch
@@ -160,4 +161,4 @@ curl -X POST http://localhost:3000/v1/execute/batch -d "{\"session_id\":\"$SID\"
 
 ## Status
 
-`0.1.0`. The API will move before `1.0`. 9 tools (4 execution + 5 agentic). `CodePolicy` default now `[python,bash,javascript]` `src/policy.rs:206` (was `[python,bash]`) to match `execution.yaml:31`. Wasm stubbed (fake `hello wasm` unless `--features wasm` with real `wasmtime` 22), `ContainerBackend` wired with `watchdog` optional `container` feature + KVM check + fallback `LocalProcessBackend` `src/backend.rs:412` (`cargo test --lib backend::tests::container_backend_falls_back_on_macos` on `darwin`), `LocalProcessBackend` default. Agentic state in-memory per `executiond` instance `scope=session_id|global` (not persisted, LRU). MIT.
+`0.2.0`. The API will move before `1.0`. 10 tools (5 execution + 5 agentic). `CodePolicy` default now `[python,bash,javascript]` `src/policy.rs:206` (was `[python,bash]`) to match `marshall.yaml:31`. Wasm stubbed (fake `hello wasm` unless `--features wasm` with real `wasmtime` 22), `ContainerBackend` wired with `watchdog` optional `container` feature + KVM check + fallback `LocalProcessBackend` `src/backend.rs:412` (`cargo test --lib backend::tests::container_backend_falls_back_on_macos` on `darwin`), `LocalProcessBackend` default. Agentic state in-memory per `marshalld` instance `scope=session_id|global` (not persisted, LRU). MIT.
