@@ -1,5 +1,5 @@
-// execution-tool JS SDK — thin client over executiond (Phase 3)
-// npm: execution-tool-sdk (scaffold)
+// marshall JS SDK — thin client over marshalld (Phase 3)
+// npm: marshall-sdk (scaffold)
 // Usage:
 //   import { ExecutionClient } from './index.js'
 //   const c = new ExecutionClient('http://localhost:3000')
