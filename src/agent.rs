@@ -235,7 +235,7 @@ impl Tool for MemoryTool {
                 "key": { "type": "string", "description": "Key (1..128 chars, a-z0-9 _ - . /). Required for store/recall/forget.", "minLength": 1, "maxLength": 128 },
                 "value": { "description": "Value to store (any JSON, max 16KiB). Required for store." },
                 "ttl_ms": { "type": "integer", "description": "Optional TTL ms (1000..3600000). After expiry recall→not_found.", "minimum": 1000, "maximum": 3600000 },
-                "session_id": { "type": "string", "description": "Optional session scope. If omitted uses global. Use same SID as executiond session to isolate per-agent." },
+                "session_id": { "type": "string", "description": "Optional session scope. If omitted uses global. Use same SID as marshalld session to isolate per-agent." },
                 "query": { "type": "string", "description": "Substring to search for (search op only, 1..256 chars)." }
             },
             "required": ["operation"]
@@ -496,7 +496,7 @@ impl Tool for TodoTool {
                 "priority": { "type": "string", "enum": ["high","medium","low"], "description": "Priority for add/update. Default medium.", "default": "medium" },
                 "id": { "type": "string", "description": "Todo id for get/update/done." },
                 "status": { "type": "string", "enum": ["pending","in_progress","done"], "description": "New status for update." },
-                "session_id": { "type": "string", "description": "Optional session scope for isolation. Uses executiond session_id if set." }
+                "session_id": { "type": "string", "description": "Optional session scope for isolation. Uses marshalld session_id if set." }
             },
             "required": ["operation"]
         })
