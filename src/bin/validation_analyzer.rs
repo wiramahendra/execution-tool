@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use execution_tool::experiment::analyzer::{analyze_files, discover_traces};
+use marshall::experiment::analyzer::{analyze_files, discover_traces};
 
 #[derive(Parser, Debug)]
 #[command(
