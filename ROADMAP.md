@@ -1,12 +1,13 @@
-# Engineering Roadmap: execution-tool -> Mature Executor
+# Engineering Roadmap: Marshall -> Mature Executor
 
 > Status: Approved. This doc is the source of truth for maturing the crate to `executor.sh`/`E2B` class.
+> Rename `execution-tool` -> **Marshall** (`marshall` crate, `marshalld` daemon, `marshall.yaml`) landed in `0.2.0` — breaking, no compat shims.
 
 ## 0. Context
 
 Current crate is an embedded library: `filesystem`/`shell`/`http` behind `deny-by-default` policy (`Sandbox`, `Destination`, `ArgumentPolicy`). `README.md` explicitly: no `seccomp/namespace/chroot`, TOCTOU not closed. Tests: `77 lib + 12 escapes` all green. Goal: mature to hosted/managed executor without losing auditability (`sha256_hex`, `REDACTION_POLICY_VERSION`, `ToolOutcome` redaction).
 
-Product wedge: `ToolRegistry` as agent runtime primitive -> `executiond` service -> multi-tenant pool.
+Product wedge: `ToolRegistry` as agent runtime primitive -> `marshalld` service -> multi-tenant pool.
 
 ## 1. Phases
 
@@ -24,14 +25,14 @@ Product wedge: `ToolRegistry` as agent runtime primitive -> `executiond` service
 - [x] Streaming: `ShellTool::execute_streaming()` -> `backend::StreamingOutput{chunks: Vec<StreamChunk{stream, bytes, sha256}>}` buffered now, true SSE in Phase 2. `backend::ExecOutput::into_outcome()` preserves `sha256` audit.
 
 ### Phase 2: Service Layer — DONE (MVP)
-- [x] `src/bin/executiond.rs:1` (`axum 0.7`): `GET /health`, `GET /v1/tools`, `POST /v1/sessions` (uuid + `Sandbox::new([tmp/work/<id>])`), `POST /v1/execute` (`tool`+`args`+`session_id`+`idempotency_key`), `POST /v1/execute/stream` (SSE `summary`/`chunk`/`done` with `sha256`), `DELETE /v1/sessions/:id`. Verified `cargo run --bin executiond -- --port 18080` + `curl` smoke: shell/filesystem + streaming green.
-- [x] Pool + quotas: `tokio::sync::Semaphore(32)` (`--concurrency` flag) `503 concurrency_limited` on `try_acquire`; per-session isolation on `tmpfs` (`/tmp/executiond/<uuid>`). Token-bucket QPS deferred to `tower_governor` Phase 2.1.
-- [x] Observability: `tracing` `TraceLayer` + `tracing_subscriber::fmt` (`RUST_LOG`, `EXECUTIOND_JSON_LOGS`), `info!` audit JSONL (`tool/success/duration_ms/sha256/redaction_policy_version`) + optional `--audit-log audit.jsonl` append, `Limits::apply_rlimits()` hook.
+- [x] `src/bin/marshalld.rs:1` (`axum 0.7`): `GET /health`, `GET /v1/tools`, `POST /v1/sessions` (uuid + `Sandbox::new([tmp/work/<id>])`), `POST /v1/execute` (`tool`+`args`+`session_id`+`idempotency_key`), `POST /v1/execute/stream` (SSE `summary`/`chunk`/`done` with `sha256`), `DELETE /v1/sessions/:id`. Verified `cargo run --bin marshalld -- --port 18080` + `curl` smoke: shell/filesystem + streaming green.
+- [x] Pool + quotas: `tokio::sync::Semaphore(32)` (`--concurrency` flag) `503 concurrency_limited` on `try_acquire`; per-session isolation on `tmpfs` (`/tmp/marshalld/<uuid>`). Token-bucket QPS deferred to `tower_governor` Phase 2.1.
+- [x] Observability: `tracing` `TraceLayer` + `tracing_subscriber::fmt` (`RUST_LOG`, `MARSHALLD_JSON_LOGS`), `info!` audit JSONL (`tool/success/duration_ms/sha256/redaction_policy_version`) + optional `--audit-log audit.jsonl` append, `Limits::apply_rlimits()` hook.
 
 ### Phase 3: Platform — DONE (MVP)
-- [x] Policy as Code `src/policy.rs:1` `ExecutionPolicy{workspace, concurrency, audit_log, filesystem, shell, http}` + `execution.yaml` sample + `serde_yaml` loader + `validate()` (absolute program, no wildcards, no control chars) + `cargo run --bin executiond -- --validate-config ./execution.yaml` + `GET /v1/policy` + hot reload via `notify 6.1` `RecursiveMode::NonRecursive` debounced 300ms swapping `Arc<ToolRegistry>`.
-- [x] Egress proxy `src/egress.rs:1` `EgressPolicy{allowed_hosts}` `check(url) -> ValidatedDestination` (allowlist before `validate_destination`) + `executiond.rs:214` server-side `403` defense-in-depth (even if `HttpTool` bypassed, metadata `169.254.169.254` → `403 host resolves to a blocked address`, verified `curl -X POST /v1/execute {"tool":"http","args":{"url":"https://169.254.169.254/"}}` → 403).
-- [x] SDKs `sdk/js/index.js` + `sdk/python/execution_tool_sdk.py` thin clients (`health`, `tools`, `createSession`, `execute`, `stream` SSE) + `sdk/README.md`.
+- [x] Policy as Code `src/policy.rs:1` `ExecutionPolicy{workspace, concurrency, audit_log, filesystem, shell, http}` + `marshall.yaml` sample + `serde_yaml` loader + `validate()` (absolute program, no wildcards, no control chars) + `cargo run --bin marshalld -- --validate-config ./marshall.yaml` + `GET /v1/policy` + hot reload via `notify 6.1` `RecursiveMode::NonRecursive` debounced 300ms swapping `Arc<ToolRegistry>`.
+- [x] Egress proxy `src/egress.rs:1` `EgressPolicy{allowed_hosts}` `check(url) -> ValidatedDestination` (allowlist before `validate_destination`) + `marshalld.rs:214` server-side `403` defense-in-depth (even if `HttpTool` bypassed, metadata `169.254.169.254` → `403 host resolves to a blocked address`, verified `curl -X POST /v1/execute {"tool":"http","args":{"url":"https://169.254.169.254/"}}` → 403).
+- [x] SDKs `sdk/js/index.js` + `sdk/python/marshall_sdk.py` thin clients (`health`, `tools`, `createSession`, `execute`, `stream` SSE) + `sdk/README.md`.
 - [x] Firecracker vs gVisor decision `docs/ARCHITECTURE.md:1` — hybrid: Firecracker for `shell` (any ELF), WASM for `code` (fuel, 5ms), `ContainerBackend` wired to `watchdog` pool.
 
 ### Phase 3.5: Capability Expansion — DONE (Engineering > Enterprise)
@@ -39,7 +40,7 @@ Product wedge: `ToolRegistry` as agent runtime primitive -> `executiond` service
 - [x] **Shell expanded** `src/shell.rs:122` `stdin`/`stdin_base64` (capped `stdin_limit 1MiB`), wired `cpu_time`/`memory_bytes` → `ResourceLimits` (wasmtime fuel / cgroup), `with_stdin_limit()`, schema updated. Backend `ExecRequest{stdin}` + `LocalProcessBackend` piped stdin. Smoke `cat` with stdin green.
 - [x] **HTTP expanded** `src/http.rs:167` `headers` schema exposed (`allowed_request_headers`), actual `request.header(k,v)` forwarding, still blocks `authorization`/`cookie`/`host`.
 - [x] **Wasm real** `src/backend.rs:333` `execute_wasm` now uses `wasmtime 22 + wasmtime-wasi 22 + cap-std 3` with `Config::consume_fuel`, `Store::set_fuel`, `WasiCtxBuilder` (stdin/stdout/stderr pipes, `preopened_dir` sandbox `/sandbox`), `store.limiter` memory cap, `epoch_deadline` timeout, `Linker` `preview1`, `_start`/`run` export, fuel/timeout → `timed_out`, truncate to `output_limit`. Feature `wasm` heavy compile guarded.
-- [x] **Batch** `src/registry.rs:200` `execute_batch(requests, max_concurrency)` with `Semaphore` preserve order, `POST /v1/execute/batch` in `executiond.rs:321` (max 32). Tested `batch 2× echo` + `shell stdin` + `fs stat` via HTTP.
+- [x] **Batch** `src/registry.rs:200` `execute_batch(requests, max_concurrency)` with `Semaphore` preserve order, `POST /v1/execute/batch` in `marshalld.rs:321` (max 32). Tested `batch 2× echo` + `shell stdin` + `fs stat` via HTTP.
 - [x] **Sequence** `src/registry.rs:233` `execute_sequence(requests, continue_on_error)` strict order, stops on first `Err` or `success==false` unless `continue_on_error=true`, `POST /v1/execute/sequence {steps: [{tool,args}], continue_on_error}` → `{outcomes, executed, total}`. Verified `sequence 3× echo` all ok, `sequence with failing middle stops at 2/3`, `continue_on_error` runs all 3. SDKs `sdk/js` `batch()`/`sequence()` + `sdk/python` `batch()`/`sequence()`.
 
 ## 2. Decisions Needed
@@ -55,10 +56,23 @@ Product wedge: `ToolRegistry` as agent runtime primitive -> `executiond` service
 ### Phase 4: Hardening & Observability — DONE (Engineering)
 - [x] **Sandbox TOCTOU** `src/sandbox.rs:18` Linux `openat2 RESOLVE_BENEATH` branch `resolve_with_openat2()` (stub until `rustix`, falls back to `canonicalize` + `contains` on macOS/old kernel) + doc update.
 - [x] **Fuzz** `fuzz/fuzz_destination.rs:1` 10-url corpus (`host_of` + `validate_destination` no panic) + `cargo run --bin fuzz_destination` ok + `#[cfg(test)] corpus_does_not_panic`, ready for `cargo fuzz run fuzz_destination`.
-- [x] **Metrics** `src/bin/executiond.rs:52` `Metrics{requests_total, success_total, failure_total, duration_ms_sum}` `GET /metrics` prometheus `text/plain; version=0.0.4`, `#[tracing::instrument]` on `execute` `list_tools`, `inc_request`/`observe` per outcome. Verified `curl /metrics` before 0 → after 1 shell `executiond_requests_total 1, success 1, duration 6`.
+- [x] **Metrics** `src/bin/marshalld.rs:52` `Metrics{requests_total, success_total, failure_total, duration_ms_sum}` `GET /metrics` prometheus `text/plain; version=0.0.4`, `#[tracing::instrument]` on `execute` `list_tools`, `inc_request`/`observe` per outcome. Verified `curl /metrics` before 0 → after 1 shell `marshalld_requests_total 1, success 1, duration 6`.
 - [x] **Stress** `tests/stress.rs:1` `ten_k_execute_once_bounded` 10k distinct keys with `cache_capacity 1024` → `cache_len <=1024` + 100 parallel ×100 concurrent, `registry.rs:200` eviction fix `> max` after insert.
 
-## 4. Implementation Order
-P0.1 -> P0.2 -> P0.4 -> P0.3 -> P0.5 -> Phase 1 -> Phase 2 -> Phase 3 -> Phase 3.5 -> Phase 4
+### Phase 5: Marshall rename + System tool — DONE (`0.2.0`)
+- [x] **Rename** `execution-tool` -> `marshall` (crate/lib), `executiond` -> `marshalld` (daemon, `MARSHALLD_*` env, `marshalld_*` metrics, `/tmp/marshalld`), `execution.yaml` -> `marshall.yaml`, `marshall-redaction-v1`, SDKs `marshall-sdk` / `marshall_sdk.py`. Breaking, no compat shims. Historical `validation/experiments/*` + `audit.jsonl` left untouched as audit trail.
+- [x] **SystemTool** `src/system.rs:1` `now/sleep/env_get/env_list/hash/info/process_list/process_kill` with `SystemPolicy` (`allowed_env`, `allow_process_list`, `allow_kill`, `max_sleep_ms`) + `ExecutionPolicy.system` + `marshall.yaml:system` + `marshalld` registration (10 tools). Env values in `content` only, `process_list` Linux `/proc` capped 256 no cmdline, `process_kill` `term/kill` via `rustix` refusing pid 0/1/self. Tests: 9 unit + 2 escape regressions + 2 policy tests.
+- [x] **Observability fix** `chrono_like_now()` now RFC3339 via `chrono` (was epoch-seconds string despite `chrono` dep).
 
-> Verified: `cargo test` **93 lib** (92 + `destination` fuzz) **+ 1 stress** + 12 escapes + doc green, `cargo clippy -D warnings` + `fmt` clean, `cargo run --bin fuzz_destination` ok, `executiond` smoke (`/health`, `/v1/tools`, `/v1/sessions`, `/v1/execute` + `batch` + `sequence` + `/metrics` increment, egress `403`) green.
+### Phase 6: Next gaps (proposed, not started)
+- **Persistence** — `memory/todo/plan` are `RwLock<HashMap>` in-process; restart wipes agent state. Options: JSONL snapshot per session or sqlite. Needs session expiry/GC (currently unbounded `sessions` map).
+- **fd-secure I/O** — `openat2` fd is dropped after `read_link`; retain fd for true no-TOCTOU reads/writes. Parent-`..` `resolve_for_create` still falls back to `canonicalize`.
+- **`NoFlags` heuristic** — documents itself as heuristic; a positional-as-script binary is still exploitable. Consider per-binary profiles or removing `NoFlags` for interpreters.
+- **Rate limits / auth** — `Semaphore(32)` + `503` only; no per-token quotas, no auth on `/v1/*`. Any client on the port is root-equivalent within policy.
+- **Process scope** — `process_list` Linux-only; macOS/Windows return `not_supported`. `process_kill` has no cgroup scoping (can signal any permitted pid, not just session children).
+- **Supply chain** — `watchdog` pinned to git `main` (unpinned rev); `cargo audit` in CI but no `cargo deny` / SBOM.
+
+## 4. Implementation Order
+P0.1 -> P0.2 -> P0.4 -> P0.3 -> P0.5 -> Phase 1 -> Phase 2 -> Phase 3 -> Phase 3.5 -> Phase 4 -> Phase 5 -> Phase 6
+
+> Verified (`0.2.0`): `cargo test --lib` **153** + `cargo test --test escapes` **14** + `1 stress` green, `cargo clippy --all-targets` + `fmt` clean, `cargo run --bin fuzz_destination` ok, `marshalld` smoke (`/health` 10 tools, `/v1/execute` system `now/hash/env_get`, `/metrics` `marshalld_*`) green.
