@@ -371,7 +371,7 @@ impl Tool for ShellTool {
             "required": ["program"],
             "examples": [
                 {"program":"/bin/echo","args":["hello"]},
-                {"program":"/usr/bin/git","args":["status"],"working_dir":"/tmp/executiond/abc"}
+                {"program":"/usr/bin/git","args":["status"],"working_dir":"/tmp/marshalld/abc"}
             ]
         })
     }
