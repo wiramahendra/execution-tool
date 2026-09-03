@@ -4,7 +4,7 @@ use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
 
-use execution_tool::{
+use marshall::{
     shell::AllowedCommand, ArgumentPolicy, FileSystemTool, Sandbox, ShellTool, ToolRegistry,
 };
 
