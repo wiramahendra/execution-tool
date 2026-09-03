@@ -1,4 +1,4 @@
-# Architecture — execution-tool → executor.sh
+# Architecture — marshall → executor.sh
 
 ## Firecracker vs gVisor — Decision (Phase 3)
 
@@ -43,8 +43,8 @@ Implemented and tested: `cargo test --lib backend::tests::container_backend_fall
 ## Current Layers (P3.5 + P4)
 
 ```
-Agent → JS/Python SDK → executiond (axum 0.7)
-                         ├─ Policy (execution.yaml → ExecutionPolicy, hot-reload notify, --validate-config, code allowed_languages)
+Agent → JS/Python SDK → marshalld (axum 0.7)
+                         ├─ Policy (marshall.yaml → ExecutionPolicy, hot-reload notify, --validate-config, code allowed_languages)
                          ├─ Egress (EgressPolicy::check + destination::validate_destination, server-side 403, batch/sequence enforced)
                          ├─ Registry (ToolRegistry, semaphore 32, execute_once dedup, execute_batch concurrent cap 64, execute_sequence ordered + templating {{steps[0].stdout}} single-pass)
                          │   ├─ FileSystemTool (Sandbox openat2 BENEATH on Linux, 12 ops: read/write/list/mkdir/delete/stat/copy/move/append/search/glob/patch, streaming read)
