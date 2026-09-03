@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
-//! Policy as Code — `execution.yaml` (Phase 3)
+//! Policy as Code — `marshall.yaml` (Phase 3)
 //!
 //! ```yaml
-//! workspace: /tmp/executiond
+//! workspace: /tmp/marshalld
 //! concurrency: 32
 //! audit_log: ./audit.jsonl
 //! filesystem:
@@ -43,6 +43,8 @@ pub struct ExecutionPolicy {
     pub http: HttpPolicy,
     #[serde(default)]
     pub code: CodePolicy,
+    #[serde(default)]
+    pub system: SystemPolicy,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,9 +136,21 @@ pub struct CodePolicy {
     pub output_limit: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemPolicy {
+    #[serde(default)]
+    pub allowed_env: Vec<String>,
+    #[serde(default)]
+    pub allow_process_list: bool,
+    #[serde(default)]
+    pub allow_kill: bool,
+    #[serde(default = "default_max_sleep")]
+    pub max_sleep_ms: u64,
+}
+
 // defaults
 fn default_workspace() -> PathBuf {
-    PathBuf::from("/tmp/executiond")
+    PathBuf::from("/tmp/marshalld")
 }
 fn default_concurrency() -> usize {
     32
@@ -162,6 +176,9 @@ fn default_resp_limit() -> usize {
 fn default_arg_policy() -> ArgPolicySerde {
     ArgPolicySerde::Simple("None".into())
 }
+fn default_max_sleep() -> u64 {
+    5_000
+}
 
 impl Default for ExecutionPolicy {
     fn default() -> Self {
@@ -173,6 +190,7 @@ impl Default for ExecutionPolicy {
             shell: ShellPolicy::default(),
             http: HttpPolicy::default(),
             code: CodePolicy::default(),
+            system: SystemPolicy::default(),
         }
     }
 }
@@ -210,6 +228,16 @@ impl Default for CodePolicy {
             allowed_languages: vec!["python".into(), "bash".into(), "javascript".into()],
             timeout_ms: default_timeout(),
             output_limit: default_output_limit(),
+        }
+    }
+}
+impl Default for SystemPolicy {
+    fn default() -> Self {
+        Self {
+            allowed_env: vec![],
+            allow_process_list: false,
+            allow_kill: false,
+            max_sleep_ms: default_max_sleep(),
         }
     }
 }
@@ -285,6 +313,22 @@ impl ExecutionPolicy {
                 anyhow::bail!("unsupported code language: {lang}");
             }
         }
+        if self.system.max_sleep_ms == 0
+            || self.system.max_sleep_ms > crate::system::MAX_SLEEP_MS_HARD_CAP
+        {
+            anyhow::bail!("system max_sleep_ms must be 1..30000ms");
+        }
+        for key in &self.system.allowed_env {
+            if key.is_empty() || key.len() > crate::system::MAX_ENV_KEY_LEN {
+                anyhow::bail!("system allowed_env key too long: {key}");
+            }
+            if !key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+                anyhow::bail!("system allowed_env key invalid: {key}");
+            }
+            if key.bytes().next().is_some_and(|b| b.is_ascii_digit()) {
+                anyhow::bail!("system allowed_env key invalid: {key}");
+            }
+        }
         Ok(())
     }
 
@@ -320,6 +364,14 @@ impl ExecutionPolicy {
             .iter()
             .filter_map(|s| crate::Language::parse(s))
             .collect()
+    }
+
+    pub fn system_tool(&self) -> crate::SystemTool {
+        crate::SystemTool::new()
+            .with_allowed_env(self.system.allowed_env.clone())
+            .with_process_list(self.system.allow_process_list)
+            .with_kill(self.system.allow_kill)
+            .with_max_sleep_ms(self.system.max_sleep_ms)
     }
 }
 
@@ -375,6 +427,33 @@ shell:
     #[test]
     fn rejects_wildcard_host() {
         let yaml = r#"http: { allowed_hosts: ["*.evil.com"] }"#;
+        assert!(ExecutionPolicy::from_yaml(yaml).is_err());
+    }
+
+    #[test]
+    fn system_policy_parses_and_builds_tool() {
+        use crate::Tool;
+        let yaml = r#"
+system:
+  allowed_env: [PATH, TZ]
+  allow_process_list: true
+  allow_kill: false
+  max_sleep_ms: 2000
+"#;
+        let p = ExecutionPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(p.system.allowed_env, vec!["PATH", "TZ"]);
+        assert!(p.system.allow_process_list);
+        let tool = p.system_tool();
+        assert!(tool.parameters_schema().get("properties").is_some());
+    }
+
+    #[test]
+    fn rejects_bad_system_policy() {
+        let yaml = r#"system: { max_sleep_ms: 99999 }"#;
+        assert!(ExecutionPolicy::from_yaml(yaml).is_err());
+        let yaml = r#"system: { allowed_env: ["HAS SPACE"] }"#;
+        assert!(ExecutionPolicy::from_yaml(yaml).is_err());
+        let yaml = r#"system: { allowed_env: ["123BAD"] }"#;
         assert!(ExecutionPolicy::from_yaml(yaml).is_err());
     }
 }
