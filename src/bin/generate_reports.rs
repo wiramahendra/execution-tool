@@ -2,14 +2,14 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
-use execution_tool::experiment::analyzer::{analyze_file, PerTaskMetrics};
+use marshall::experiment::analyzer::{analyze_file, PerTaskMetrics};
 #[allow(unused_imports)]
-use execution_tool::experiment::collector::collect_repo_state;
-use execution_tool::experiment::manifest::TaskManifest;
-use execution_tool::experiment::patterns::{
+use marshall::experiment::collector::collect_repo_state;
+use marshall::experiment::manifest::TaskManifest;
+use marshall::experiment::patterns::{
     duration_dominance, mine_bigrams, mine_trigrams, success_after, volume_dominance,
 };
-use execution_tool::experiment::recorder::read_jsonl;
+use marshall::experiment::recorder::read_jsonl;
 
 fn percentile(mut v: Vec<u64>, p: f64) -> f64 {
     if v.is_empty() {
@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
     println!("found {} traces in {}", files.len(), tasks_dir.display());
 
     let mut metrics: Vec<PerTaskMetrics> = Vec::new();
-    let mut all_events: HashMap<String, Vec<execution_tool::experiment::schema::ExperimentEvent>> =
+    let mut all_events: HashMap<String, Vec<marshall::experiment::schema::ExperimentEvent>> =
         HashMap::new();
     for f in &files {
         let m = analyze_file(f)?;
@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<()> {
 
     let pattern_json = json!({
         "total_tasks": all_events.len(),
-        "total_tool_calls": all_events.values().map(|v| v.iter().filter(|e| e.event_type==execution_tool::experiment::schema::EventType::ToolCallCompleted).count()).sum::<usize>(),
+        "total_tool_calls": all_events.values().map(|v| v.iter().filter(|e| e.event_type==marshall::experiment::schema::EventType::ToolCallCompleted).count()).sum::<usize>(),
         "top_bigrams": bigrams.iter().take(20).map(|b| json!({"bigram": b.bigram, "count": b.count, "task_coverage": b.task_coverage, "tasks": b.tasks, "median_turns_between": b.median_turns_between})).collect::<Vec<_>>(),
         "top_trigrams": trigrams.iter().take(20).map(|t| json!({"trigram": t.trigram, "count": t.count, "task_coverage": t.task_coverage})).collect::<Vec<_>>(),
         "volume_dominance": vol,
