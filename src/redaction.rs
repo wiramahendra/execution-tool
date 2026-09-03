@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 ///
 /// Recorded in summaries so a stored result stays interpretable after the
 /// rules change.
-pub const REDACTION_POLICY_VERSION: &str = "execution-tool-redaction-v1";
+pub const REDACTION_POLICY_VERSION: &str = "marshall-redaction-v1";
 
 /// Longest string kept verbatim in a summary.
 pub const MAX_SUMMARY_STRING: usize = 512;
